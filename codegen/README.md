@@ -6,7 +6,7 @@ codegen
 ## Usage
 
 ```shell
-go run main.go "$GOPATH/src/github.com/heroiclabs/nakama/apigrpc/apigrpc.swagger.json" > ../addons/com.heroiclabs.nakama/api/NakamaAPI.gd
+go run main.go "$GOPATH/src/github.com/heroiclabs/nakama/apigrpc/apigrpc.swagger.json" > ../client/addons/com.heroiclabs.nakama/api/NakamaAPI.gd
 ```
 
 ### Rationale

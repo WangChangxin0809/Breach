@@ -3,8 +3,8 @@ package systems
 import (
 	"testing"
 
-	"breach3v3/backend/modules/config"
-	"breach3v3/backend/modules/state"
+	"breach3v3/server/modules/config"
+	"breach3v3/server/modules/state"
 )
 
 func TestValidateMoveAcceptsLegalMovement(t *testing.T) {

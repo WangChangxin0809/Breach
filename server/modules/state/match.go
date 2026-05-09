@@ -4,7 +4,7 @@ import (
 	"sort"
 	"time"
 
-	"breach3v3/backend/modules/config"
+	"breach3v3/server/modules/config"
 
 	"github.com/heroiclabs/nakama-common/runtime"
 )

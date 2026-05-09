@@ -3,8 +3,8 @@ package systems
 import (
 	"time"
 
-	"breach3v3/backend/modules/config"
-	"breach3v3/backend/modules/state"
+	"breach3v3/server/modules/config"
+	"breach3v3/server/modules/state"
 )
 
 func UpdateRound(matchState *state.MatchState, now time.Time) {
