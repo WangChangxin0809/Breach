@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"breach3v3/backend/modules/config"
-	"breach3v3/backend/modules/state"
+	"breach3v3/server/modules/config"
+	"breach3v3/server/modules/state"
 )
 
 func TestUpdateRoundTransitionsWaitingToPlaying(t *testing.T) {

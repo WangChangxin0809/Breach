@@ -1,4 +1,4 @@
-module breach3v3/backend
+module breach3v3/server
 
 go 1.22
 

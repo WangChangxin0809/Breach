@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"breach3v3/backend/modules/config"
-	gamepb "breach3v3/backend/modules/protobuf"
-	"breach3v3/backend/modules/state"
-	"breach3v3/backend/modules/systems"
+	"breach3v3/server/modules/config"
+	gamepb "breach3v3/server/modules/protobuf"
+	"breach3v3/server/modules/state"
+	"breach3v3/server/modules/systems"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/heroiclabs/nakama-common/runtime"

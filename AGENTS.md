@@ -29,52 +29,69 @@
 
 ## Directory Structure
 
+The repository is split into independent **front-end** and **back-end** sub-projects at the top level, plus shared tooling and docs:
+
 ```
 project-root/
-├── addons/
-│   ├── com.heroiclabs.nakama/       # Nakama Godot SDK (client-side)
-│   │   ├── api/                     # API definitions
-│   │   ├── client/                  # HTTP client implementation
-│   │   ├── socket/                  # WebSocket client implementation
-│   │   ├── utils/                   # Utility classes
-│   │   └── dotnet-utils/            # .NET adapters
-│   └── godot_mcp/                   # Godot MCP for AI agent integration
-│       ├── commands/                # MCP command implementations
-│       ├── ui/                      # MCP UI components
-│       ├── utils/                   # MCP utility functions
-│       └── skills.md                # MCP skill definition file
-├── backend/
-│   ├── modules/                     # Server-authoritative Go code (all match logic, config, handlers)
-│   ├── proto/                       # Protocol Buffers definitions
-│   │   └── generated/               # Auto-generated Protobuf code, DO NOT EDIT
-│   └── docker-compose.yml           # Local Nakama server definition
-├── codegen/
-│   ├── README.md                    # Code generation documentation
-│   └── main.go                      # Go code generator for Nakama API
-├── docs/
-│   └── Nakama-Godot-Client.md       # Official Nakama Godot SDK reference
-├── test_suite/                      # Test suite for Nakama SDK
-│   ├── tests/                       # Test scripts
-│   ├── utils/                       # Test utilities
-│   ├── bin/                         # Test binaries
-│   ├── base_test.gd                 # Base test class
-│   ├── runner.gd                    # Test runner
-│   ├── tester.tscn                  # Test scene
-│   └── project.godot                # Test project config
-├── .github/                         # GitHub resources
-├── .editorconfig                    # Editor configuration
-├── .gitattributes                   # Git attributes
-├── .gitignore                       # Git ignore rules
-├── AGENTS.md                        # AI agent development guide
-├── CHANGELOG.md                     # Project changelog
-├── LICENSE                          # License file
-├── README.md                        # Project documentation
-├── icon.svg                         # Project icon
-└── project.godot                    # Godot project configuration
+├── client/                           # Godot front-end (open client/project.godot in Godot Editor)
+│   ├── addons/
+│   │   ├── com.heroiclabs.nakama/    # Nakama Godot SDK (client-side)
+│   │   │   ├── api/                  # API definitions
+│   │   │   ├── client/               # HTTP client implementation
+│   │   │   ├── socket/               # WebSocket client implementation
+│   │   │   ├── utils/                # Utility classes
+│   │   │   └── dotnet-utils/         # .NET adapters
+│   │   └── godot_mcp/                # Godot MCP for AI agent integration
+│   │       ├── commands/             # MCP command implementations
+│   │       ├── ui/                   # MCP UI components
+│   │       ├── utils/                # MCP utility functions
+│   │       └── skills.md             # MCP skill definition file
+│   ├── scenes/                       # Godot scenes (.tscn)
+│   ├── scripts/                      # GDScript game code
+│   ├── tools/                        # Godot-side dev tools (smoke tests, etc.)
+│   ├── icon.svg                      # Project icon
+│   └── project.godot                 # Godot project configuration
+├── server/                           # Go back-end (Nakama authoritative match logic)
+│   ├── modules/                      # Server-authoritative Go code (match logic, config, handlers)
+│   │   ├── config/                   # Game parameter constants
+│   │   ├── state/                    # Match/player/weapon state
+│   │   ├── systems/                  # Game systems (movement, damage, round, ...)
+│   │   ├── protobuf/                 # Protocol Buffers definitions & generated code
+│   │   └── match_handler.go          # Nakama MatchHandler entry point
+│   ├── Dockerfile                    # Nakama custom image build
+│   ├── docker-compose.yml            # Local Nakama server definition
+│   ├── local.yml                     # Nakama runtime config
+│   ├── go.mod                        # Go module (module breach3v3/server)
+│   └── go.sum
+├── codegen/                          # Cross-end tool: generate GDScript NakamaAPI from swagger
+│   ├── README.md
+│   └── main.go
+├── docs/                             # Shared documentation
+│   └── Nakama-Godot-Client.md        # Official Nakama Godot SDK reference
+├── test_suite/                       # Independent Godot project: Nakama SDK test suite
+│   ├── tests/                        # Test scripts
+│   ├── utils/                        # Test utilities
+│   ├── bin/                          # Test binaries
+│   ├── base_test.gd                  # Base test class
+│   ├── runner.gd                     # Test runner
+│   ├── tester.tscn                   # Test scene
+│   └── project.godot                 # Test project config
+├── .github/                          # GitHub resources
+├── .editorconfig                     # Editor configuration
+├── .gitattributes                    # Git attributes
+├── .gitignore                        # Git ignore rules
+├── AGENTS.md                         # AI agent development guide
+├── CHANGELOG.md                      # Project changelog
+├── LICENSE                           # License file
+└── README.md                         # Project documentation
 ```
 
-- **Nakama SDK docs**: `docs/Nakama-Godot-Client.md` is the primary reference. Only if the solution is not found there, read the SDK source in `addons/com.heroiclabs.nakama/`.
-- **Godot MCP**: `addons/godot_mcp/` allows the AI agent to interact with the Godot editor programmatically.
+**Key points**:
+- `client/` and `server/` are **two independent sub-projects**. Open `client/project.godot` in Godot Editor; run Docker from `server/`.
+- The repository root is **not** a Godot project—`project.godot` lives inside `client/`.
+- Go module path: `breach3v3/server` (all Go imports start with this prefix).
+- **Nakama SDK docs**: `docs/Nakama-Godot-Client.md` is the primary reference. Only if the solution is not found there, read the SDK source in `client/addons/com.heroiclabs.nakama/`.
+- **Godot MCP**: `client/addons/godot_mcp/` allows the AI agent to interact with the Godot editor programmatically.
 
 ---
 
@@ -86,7 +103,7 @@ You **must** use Go for all server-side logic.
 - JavaScript/TypeScript runtime (JSVM) is restricted and unsuitable for high‑frequency, latency‑sensitive shooter loops.
 
 ### 1.1 Code Formatting & Style
-- **Go**: All Go code must be formatted with `gofmt` or `goimports`. Run `gofmt -w ./backend/` before committing. Follow the [Effective Go](https://go.dev/doc/effective_go) guide.
+- **Go**: All Go code must be formatted with `gofmt` or `goimports`. Run `gofmt -w ./server/` before committing. Follow the [Effective Go](https://go.dev/doc/effective_go) guide.
 - **GDScript**: Follow the [GDScript style guide](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_styleguide.html), including using `snake_case` for variables and signal callbacks.
 
 ### 2. Server-Authoritative Architecture
@@ -95,7 +112,7 @@ The game uses a **server‑authoritative** match system. The server holds the si
 #### Protobuf Messaging
 > For specific usage, you need to web search some best practice by yourself.
 - **Message Format**: Use Protocol Buffers for all match state messages (player actions, server broadcasts) to minimise bandwidth and serialisation overhead. Keep JSON for less frequent, non-critical messages like chat or configurations.
-- All `.proto` definitions belong in `backend/proto/`.
+- All `.proto` definitions belong in `server/proto/`.
 - **Code Generation**: Use `protoc` with Go and Godot plugins to auto-generate serialization code.
 - **Versioning**: Include version fields in protobuf messages for backward compatibility during updates.
 - **Compression**: Combine with gzip compression for large state snapshots.
@@ -108,7 +125,7 @@ The game uses a **server‑authoritative** match system. The server holds the si
 - Send player actions to the server as compact messages via `socket.send_match_state_async(match_id, op_code, proto_serialized(payload))`.
 - Apply authoritative state updates received from the server. The server’s state always overrides the client’s prediction. You can reference the Best Practice from https://www.gabrielgambetta.com/client-side-prediction-server-reconciliation.html
 
-#### Server Responsibilities (in `backend/modules/`)
+#### Server Responsibilities (in `server/modules/`)
 - Implement a `MatchHandler` that defines:
   - `MatchInit`: initialise match state, spawn points, loadout, and return the **server-authoritative tick rate** (e.g., 20). This rate (1-60) is a key performance parameter and must be defined in the server config.
   - `MatchJoinAttempt`: validate and accept/reject player join attempts.
@@ -135,13 +152,13 @@ The game uses a **server‑authoritative** match system. The server holds the si
 - **Rate limiting**: Implement rate limits on sensitive actions to prevent spam/DoS attacks.
 
 ### 3. Configuration & Data
-All tuneable game parameters **must** be defined in `backend/modules/config/` as Go exported constants. Split them into logical files such as:
+All tuneable game parameters **must** be defined in `server/modules/config/` as Go exported constants. Split them into logical files such as:
 
 - `weapons.go`: damage, fire rate, range, reload time, unlock cost, etc.
 - `characters.go`: base health, movement speed, respawn time, vision radius/cone length.
 - `match.go`: round duration, rounds per half, points per kill (player/zombie), faction upgrade thresholds.
 
-**Example (`backend/modules/config/characters.go`)**:
+**Example (`server/modules/config/characters.go`)**:
 ```go
 package config
 
@@ -208,14 +225,14 @@ Include these commands in your development loop:
 
 ```bash
 # Lint server code (run from project root)
-go vet ./backend/modules/...
+go vet ./server/modules/...
 
-# Run Nakama locally (requires Docker, run from backend/ directory)
-cd backend/
+# Run Nakama locally (requires Docker, run from server/ directory)
+cd server/
 docker-compose up
 
-# After changes, rebuild and restart Nakama (run from backend/ directory)
-cd backend/
+# After changes, rebuild and restart Nakama (run from server/ directory)
+cd server/
 docker-compose down && docker-compose up --build
 
 # Run Godot client (for manual testing)

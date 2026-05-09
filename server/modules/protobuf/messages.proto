@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package breach.v1;
 
-option go_package = "breach3v3/backend/modules/protobuf";
+option go_package = "breach3v3/server/modules/protobuf";
 
 message Vector2 {
   float x = 1;
