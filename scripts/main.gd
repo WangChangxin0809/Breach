@@ -1,0 +1,259 @@
+extends Node2D
+
+const PLAYER_SIZE := Vector2(32.0, 32.0)
+const LOGIN_PANEL_SIZE := Vector2(360.0, 230.0)
+
+var network: NetworkClient
+var players: Dictionary = {}
+var my_user_id := ""
+var my_match_id := ""
+var local_position := Vector2(120.0, 180.0)
+var client_tick := 0
+var latest_round_state := Config.ROUND_WAITING
+var latest_round_time := 0.0
+
+var camera: Camera2D
+var hud: CanvasLayer
+var email_input: LineEdit
+var password_input: LineEdit
+var login_button: Button
+var match_button: Button
+var status_label: Label
+var identity_label: Label
+var match_label: Label
+var round_label: Label
+var player_list: Label
+
+func _ready() -> void:
+	network = NetworkClient.new()
+	add_child(network)
+	network.authenticated.connect(_on_authenticated)
+	network.connected_to_match.connect(_on_connected_to_match)
+	network.authoritative_state_received.connect(_on_authoritative_state)
+	network.status_changed.connect(_on_status_changed)
+	_setup_input_actions()
+	_setup_world_camera()
+	_setup_ui()
+	_on_status_changed("Enter email, login, then start matchmaking")
+
+func _physics_process(delta: float) -> void:
+	if my_user_id.is_empty() or my_match_id.is_empty():
+		return
+	var direction := Input.get_vector("left", "right", "up", "down")
+	if direction == Vector2.ZERO:
+		return
+	var predicted_position := local_position + direction * Config.PLAYER_MOVE_SPEED * delta
+	if _is_valid_local_position(predicted_position):
+		local_position = predicted_position
+		network.send_move(client_tick, local_position, direction)
+		client_tick += 1
+		queue_redraw()
+
+func _draw() -> void:
+	draw_rect(Rect2(Vector2.ZERO, Config.MAP_SIZE), Color(0.08, 0.09, 0.1), true)
+	for obstacle in Config.SOLID_OBSTACLES:
+		draw_rect(obstacle, Color(0.27, 0.29, 0.31), true)
+	for player_id in players:
+		var player: Dictionary = players[player_id]
+		if not player["connected"]:
+			continue
+		var color := Color(0.2, 0.65, 1.0)
+		if player["faction"] == Config.FACTION_DEFENDERS:
+			color = Color(1.0, 0.42, 0.27)
+		var position: Vector2 = player["position"]
+		if player_id == my_user_id:
+			position = local_position
+			color = color.lightened(0.25)
+		draw_rect(Rect2(position - PLAYER_SIZE * 0.5, PLAYER_SIZE), color, true)
+		draw_rect(Rect2(position + Vector2(-18.0, -28.0), Vector2(36.0, 5.0)), Color(0.1, 0.1, 0.1), true)
+		draw_rect(Rect2(position + Vector2(-18.0, -28.0), Vector2(36.0 * clampf(float(player["health"]) / 100.0, 0.0, 1.0), 5.0)), Color(0.1, 0.85, 0.3), true)
+
+func _on_login_pressed() -> void:
+	login_button.disabled = true
+	network.login(email_input.text.strip_edges(), password_input.text)
+
+func _on_match_pressed() -> void:
+	match_button.disabled = true
+	network.start_matchmaking()
+
+func _on_authenticated(user_id: String, username: String) -> void:
+	my_user_id = user_id
+	identity_label.text = "Email login: %s\nUser: %s\nID: %s" % [email_input.text.strip_edges(), username, user_id]
+	login_button.disabled = false
+	match_button.disabled = false
+
+func _on_connected_to_match(match_id: String, user_id: String) -> void:
+	my_user_id = user_id
+	my_match_id = match_id
+	match_label.text = "Match: %s\nMatchmaker: query '%s', %d-%d players" % [
+		match_id,
+		Config.MATCHMAKER_QUERY,
+		Config.MATCHMAKER_MIN_PLAYERS,
+		Config.MATCHMAKER_MAX_PLAYERS,
+	]
+	match_button.disabled = true
+
+func _on_authoritative_state(state: Dictionary) -> void:
+	latest_round_state = state["round_state"]
+	latest_round_time = state["round_time_remaining"]
+	for player in state["players"]:
+		players[player["user_id"]] = player
+		if player["user_id"] == my_user_id:
+			local_position = player["position"]
+	_update_match_ui()
+	queue_redraw()
+
+func _on_status_changed(message: String) -> void:
+	status_label.text = message
+	if message.begins_with("Auth failed") or message.begins_with("Socket failed"):
+		login_button.disabled = false
+	if message.begins_with("Matchmaker failed") or message.begins_with("Join matched failed"):
+		match_button.disabled = false
+
+func _setup_world_camera() -> void:
+	camera = Camera2D.new()
+	camera.position = Config.MAP_SIZE * 0.5
+	camera.zoom = Vector2(0.75, 0.75)
+	camera.enabled = true
+	add_child(camera)
+
+func _setup_ui() -> void:
+	hud = CanvasLayer.new()
+	add_child(hud)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = LOGIN_PANEL_SIZE
+	panel.position = Vector2(18.0, 18.0)
+	hud.add_child(panel)
+
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 8)
+	panel.add_child(layout)
+
+	var title := Label.new()
+	title.text = "Breach-3v3"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(title)
+
+	email_input = LineEdit.new()
+	email_input.placeholder_text = "Email"
+	email_input.text = _default_email()
+	layout.add_child(email_input)
+
+	password_input = LineEdit.new()
+	password_input.placeholder_text = "Password"
+	password_input.secret = true
+	password_input.text = "breach-local-password"
+	layout.add_child(password_input)
+
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 8)
+	layout.add_child(buttons)
+
+	login_button = Button.new()
+	login_button.text = "Login"
+	login_button.pressed.connect(_on_login_pressed)
+	buttons.add_child(login_button)
+
+	match_button = Button.new()
+	match_button.text = "Start Matchmaking"
+	match_button.disabled = true
+	match_button.pressed.connect(_on_match_pressed)
+	buttons.add_child(match_button)
+
+	status_label = Label.new()
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	layout.add_child(status_label)
+
+	identity_label = Label.new()
+	identity_label.position = Vector2(18.0, 268.0)
+	identity_label.custom_minimum_size = Vector2(420.0, 72.0)
+	hud.add_child(identity_label)
+
+	match_label = Label.new()
+	match_label.position = Vector2(18.0, 344.0)
+	match_label.custom_minimum_size = Vector2(520.0, 62.0)
+	hud.add_child(match_label)
+
+	round_label = Label.new()
+	round_label.position = Vector2(18.0, 410.0)
+	hud.add_child(round_label)
+
+	player_list = Label.new()
+	player_list.position = Vector2(18.0, 438.0)
+	player_list.custom_minimum_size = Vector2(520.0, 180.0)
+	hud.add_child(player_list)
+
+func _update_match_ui() -> void:
+	round_label.text = "Round %s  %.1fs  Players %d" % [_round_name(latest_round_state), latest_round_time, players.size()]
+	var lines: Array[String] = []
+	for player_id in players:
+		var player: Dictionary = players[player_id]
+		var tag := "ATK"
+		if player["faction"] == Config.FACTION_DEFENDERS:
+			tag = "DEF"
+		var marker := ""
+		if player_id == my_user_id:
+			marker = " <- you"
+		lines.append("%s  hp:%d  pos:(%.0f, %.0f)%s" % [
+			tag,
+			player["health"],
+			player["position"].x,
+			player["position"].y,
+			marker,
+		])
+	player_list.text = "\n".join(lines)
+
+func _setup_input_actions() -> void:
+	_add_key_action("left", KEY_A)
+	_add_key_action("left", KEY_LEFT)
+	_add_key_action("right", KEY_D)
+	_add_key_action("right", KEY_RIGHT)
+	_add_key_action("up", KEY_W)
+	_add_key_action("up", KEY_UP)
+	_add_key_action("down", KEY_S)
+	_add_key_action("down", KEY_DOWN)
+
+func _add_key_action(action: String, keycode: Key) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	var event := InputEventKey.new()
+	event.physical_keycode = keycode
+	if not InputMap.action_has_event(action, event):
+		InputMap.action_add_event(action, event)
+
+func _default_email() -> String:
+	var args := OS.get_cmdline_user_args()
+	for index in range(args.size()):
+		if args[index] == "--email" and index + 1 < args.size():
+			return args[index + 1]
+		if args[index].begins_with("--email="):
+			return args[index].trim_prefix("--email=")
+	return "player-%s@breach.local" % str(Time.get_ticks_usec())
+
+func _is_valid_local_position(position: Vector2) -> bool:
+	var radius := Config.PLAYER_RADIUS
+	if position.x < radius or position.y < radius:
+		return false
+	if position.x > Config.MAP_SIZE.x - radius or position.y > Config.MAP_SIZE.y - radius:
+		return false
+	for obstacle in Config.SOLID_OBSTACLES:
+		if _circle_rect_intersects(position, radius, obstacle):
+			return false
+	return true
+
+func _circle_rect_intersects(center: Vector2, radius: float, rect: Rect2) -> bool:
+	var closest := Vector2(
+		clampf(center.x, rect.position.x, rect.position.x + rect.size.x),
+		clampf(center.y, rect.position.y, rect.position.y + rect.size.y)
+	)
+	return center.distance_to(closest) < radius
+
+func _round_name(round_state: int) -> String:
+	match round_state:
+		Config.ROUND_PLAYING:
+			return "Playing"
+		Config.ROUND_ENDED:
+			return "Ended"
+		_:
+			return "Waiting"

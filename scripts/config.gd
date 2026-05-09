@@ -1,0 +1,32 @@
+extends RefCounted
+class_name Config
+
+const SERVER_KEY := "defaultkey"
+const SERVER_HOST := "127.0.0.1"
+const SERVER_PORT := 7350
+const MATCH_NAME := "breach_match"
+const RPC_CREATE_MATCH := "create_breach_match"
+const MATCHMAKER_QUERY := "*"
+const MATCHMAKER_MIN_PLAYERS := 2
+const MATCHMAKER_MAX_PLAYERS := 6
+
+const PROTOCOL_VERSION := 1
+const OP_MOVE := 1
+const OP_GAME_STATE := 2
+
+const PLAYER_MOVE_SPEED := 220.0
+const PLAYER_RADIUS := 16.0
+const MAP_SIZE := Vector2(1600.0, 960.0)
+
+const FACTION_ATTACKERS := 1
+const FACTION_DEFENDERS := 2
+
+const ROUND_WAITING := 1
+const ROUND_PLAYING := 2
+const ROUND_ENDED := 3
+
+const SOLID_OBSTACLES := [
+	Rect2(460.0, 220.0, 120.0, 260.0),
+	Rect2(920.0, 420.0, 260.0, 120.0),
+	Rect2(700.0, 700.0, 180.0, 90.0),
+]

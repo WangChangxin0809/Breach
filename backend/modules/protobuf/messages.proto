@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package breach.v1;
+
+option go_package = "breach3v3/backend/modules/protobuf";
+
+message Vector2 {
+  float x = 1;
+  float y = 2;
+}
+
+message MoveCommand {
+  uint32 version = 1;
+  uint64 client_tick = 2;
+  Vector2 position = 3;
+  Vector2 direction = 4;
+}
+
+message PlayerState {
+  string user_id = 1;
+  string display_name = 2;
+  int32 faction = 3;
+  Vector2 position = 4;
+  int32 health = 5;
+  bool connected = 6;
+}
+
+message GameState {
+  uint32 version = 1;
+  uint64 tick = 2;
+  int32 round_state = 3;
+  float round_time_remaining = 4;
+  repeated PlayerState players = 5;
+}

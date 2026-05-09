@@ -1,0 +1,33 @@
+package protobuf
+
+import (
+	"testing"
+
+	"github.com/golang/protobuf/proto"
+)
+
+func TestMoveCommandRoundTrip(t *testing.T) {
+	original := &MoveCommand{
+		Version:    PROTOCOL_VERSION,
+		ClientTick: 12,
+		Position:   &Vector2{X: 128, Y: 256},
+		Direction:  &Vector2{X: 1, Y: 0},
+	}
+
+	data, err := proto.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal move command: %v", err)
+	}
+
+	decoded := &MoveCommand{}
+	if err := proto.Unmarshal(data, decoded); err != nil {
+		t.Fatalf("unmarshal move command: %v", err)
+	}
+
+	if decoded.Version != original.Version || decoded.ClientTick != original.ClientTick {
+		t.Fatalf("decoded scalar fields mismatch: %#v", decoded)
+	}
+	if decoded.Position == nil || decoded.Position.X != original.Position.X || decoded.Position.Y != original.Position.Y {
+		t.Fatalf("decoded position mismatch: %#v", decoded.Position)
+	}
+}

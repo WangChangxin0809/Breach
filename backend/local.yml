@@ -1,0 +1,8 @@
+logger:
+  level: DEBUG
+
+runtime:
+  path: /nakama/data/modules
+
+matchmaker:
+  interval_sec: 2
