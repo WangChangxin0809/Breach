@@ -223,7 +223,7 @@ Do not spend time on detailed environments until core systems are stable.
 > and attach scripts directly in the editor for fast prototyping.
 > Prefer Godot MCP for editor operations when available.
 
-Local Godot executable on macOS: `/Applications/Godot.app/Contents/MacOS/Godot`.
+Use `scripts/run_godot_client.sh` (macOS/Linux) or `scripts\run_godot_client.bat` (Windows) to launch the client. If Godot is not in a common location, set `GODOT_BIN`.
 Include these commands in your development loop:
 
 ```bash
@@ -239,7 +239,7 @@ cd server/
 docker-compose down && docker-compose up --build
 
 # Run Godot client (for manual testing)
-/Applications/Godot.app/Contents/MacOS/Godot --path ./client
+scripts/run_godot_client.sh
 ```
 
 The AI agent should **always lint the Go code** after modifications and provide the corrected code when errors are found.
