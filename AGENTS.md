@@ -221,6 +221,9 @@ Do not spend time on detailed environments until core systems are stable.
 ### 6. Testing & Workflow
 > Use the Godot MCP tools to create minimal placeholder scenes, add nodes,
 > and attach scripts directly in the editor for fast prototyping.
+> Prefer Godot MCP for editor operations when available.
+
+Local Godot executable on macOS: `/Applications/Godot.app/Contents/MacOS/Godot`.
 Include these commands in your development loop:
 
 ```bash
@@ -236,7 +239,7 @@ cd server/
 docker-compose down && docker-compose up --build
 
 # Run Godot client (for manual testing)
-# (command depends on your OS, e.g. `godot --path ./`)
+/Applications/Godot.app/Contents/MacOS/Godot --path ./client
 ```
 
 The AI agent should **always lint the Go code** after modifications and provide the corrected code when errors are found.
