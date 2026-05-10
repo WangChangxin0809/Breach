@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" path="res://scenes/characters/character_base.tscn" id="1"]
 
 [node name="TestCharacter" instance=ExtResource("1")]
+local_movement_enabled = true
 
 [node name="Sprite" parent="." index="0"]
 modulate = Color(0.4, 0.85, 1, 1)

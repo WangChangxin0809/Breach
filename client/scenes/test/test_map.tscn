@@ -25,5 +25,26 @@ offset_right = 96.0
 offset_bottom = 48.0
 text = "返回"
 
-[node name="HudHealthBar" parent="." instance=ExtResource("3")]
+[node name="HealthControls" type="HBoxContainer" parent="UILayer"]
+offset_left = 112.0
+offset_top = 16.0
+offset_right = 472.0
+offset_bottom = 48.0
 
+[node name="DamageButton" type="Button" parent="UILayer/HealthControls"]
+layout_mode = 2
+text = "扣血"
+
+[node name="HealButton" type="Button" parent="UILayer/HealthControls"]
+layout_mode = 2
+text = "加血"
+
+[node name="DeathButton" type="Button" parent="UILayer/HealthControls"]
+layout_mode = 2
+text = "死亡"
+
+[node name="RespawnButton" type="Button" parent="UILayer/HealthControls"]
+layout_mode = 2
+text = "重生"
+
+[node name="HudHealthBar" parent="." instance=ExtResource("3")]
