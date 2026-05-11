@@ -6,4 +6,4 @@
 ![alt text](client/assets/maps/castle.png)
 
 ## 测试角色
-![alt text](client/assets/spiritframes/fura.png)
+![alt text](image.png)
