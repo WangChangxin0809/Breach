@@ -39,7 +39,7 @@ func _physics_process(delta: float) -> void:
 	var direction := Input.get_vector("left", "right", "up", "down")
 	if direction == Vector2.ZERO:
 		return
-	position = _clamp_to_movement_bounds(position + direction * Config.PLAYER_MOVE_SPEED * delta)
+	position = (position + direction * Config.PLAYER_MOVE_SPEED * delta)
 
 # 服务器权威状态回调：由网络层在收到广播后调用。
 # state 键暂定：position / user_id / faction / health（后续随 proto 扩展）。
