@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://b14bvie0y6f5w" path="res://assets/spiritframes/0001_export_Image Frames.png" id="1_olr1n"]
 [ext_resource type="Texture2D" uid="uid://byx2v6kbfy1a0" path="res://assets/spiritframes/Player_01/Idle.png" id="3_fxgxy"]
 [ext_resource type="Texture2D" uid="uid://tenguv137nos" path="res://assets/Weapon/枪.png" id="4_fxgxy"]
+[ext_resource type="Texture2D" uid="uid://csmoowd46cc5f" path="res://assets/Other/light.png" id="6_bl28q"]
 [ext_resource type="Script" uid="uid://dlb4t24ho60nx" path="res://scripts/characters/Player_Camera.gd" id="6_fxgxy"]
 [ext_resource type="Texture2D" uid="uid://b67c3xfs5ryo7" path="res://assets/spiritframes/Player_02/Idle_Image Frames.png" id="7_bby0m"]
 
@@ -321,17 +322,23 @@ position = Vector2(11, 1)
 texture = ExtResource("4_fxgxy")
 flip_h = true
 
+[node name="PointLight2D2" type="PointLight2D" parent="Player/WeaponPivot" unique_id=2046151916]
+position = Vector2(222.5, 207)
+color = Color(0.87049997, 0.79, 1, 1)
+shadow_enabled = true
+texture = SubResource("GradientTexture2D_4homf")
+
+[node name="PointLight2D" type="PointLight2D" parent="Player/WeaponPivot" unique_id=1513359479]
+position = Vector2(127.5, -3)
+scale = Vector2(0.5, 0.5)
+color = Color(1, 0.896, 0.88, 1)
+shadow_enabled = true
+texture = ExtResource("6_bl28q")
+
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=752909453]
 position = Vector2(-1, -23)
 zoom = Vector2(2, 2)
 script = ExtResource("6_fxgxy")
-
-[node name="PointLight2D" type="PointLight2D" parent="Player" unique_id=1513359479]
-visible = false
-position = Vector2(0, -15)
-color = Color(1, 0.896, 0.88, 1)
-shadow_enabled = true
-texture = SubResource("GradientTexture2D_4homf")
 
 [node name="Player2" type="CharacterBody2D" parent="." unique_id=1369401630]
 position = Vector2(267, 252)
@@ -361,12 +368,10 @@ texture = ExtResource("4_fxgxy")
 flip_h = true
 
 [node name="PointLight2D" type="PointLight2D" parent="Player2" unique_id=559341765]
-visible = false
 position = Vector2(0, -15)
 color = Color(0.87049997, 0.79, 1, 1)
 shadow_enabled = true
 texture = SubResource("GradientTexture2D_4homf")
 
 [node name="CanvasModulate" type="CanvasModulate" parent="." unique_id=2065614486]
-visible = false
 color = Color(0.0114750685, 0.09419904, 0.1127126, 1)
