@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cpofv51c2qka4"]
 
-[ext_resource type="Script" uid="uid://qbot6ydtedia" path="res://scripts/start_menu.gd" id="1"]
+[ext_resource type="Script" uid="uid://qbot6ydtedia" path="res://scripts/main_game/start_menu.gd" id="1"]
 
 [node name="StartMenu" type="Control" unique_id=1870171988]
 layout_mode = 3
@@ -53,7 +53,7 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 text = "联网原型 (main.tscn)"
 
-[node name="ArtTestButton" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="ArtTestButton" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1069452461]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 text = "美术测试 (Art Test)"

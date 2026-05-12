@@ -4,8 +4,8 @@ extends Control
 # 仅负责场景切换，不做任何联网或游戏状态处理。
 
 const TEST_MAP_SCENE := "res://scenes/test/test_map.tscn"
-const ONLINE_PROTO_SCENE := "res://scenes/main.tscn"
-const ART_TEST_SCENE := "res://scenes/美术测试.tscn"
+const ONLINE_PROTO_SCENE := "res://scenes/main_game/main.tscn"
+const ART_TEST_SCENE := "res://scenes/test/art_test.tscn"
 
 @onready var test_map_button: Button = get_node_or_null("CenterContainer/VBoxContainer/TestMapButton")
 @onready var online_proto_button: Button = get_node_or_null("CenterContainer/VBoxContainer/OnlineProtoButton")

@@ -3,7 +3,7 @@ extends Node2D
 # 仅提供一张可视的网格占位地图 + 屏幕固定的返回按钮。
 # 联网、玩家、生命值等后续由对应模块负责人接入，本文件不处理联网状态清理。
 
-const START_MENU_SCENE := "res://scenes/start_menu.tscn"
+const START_MENU_SCENE := "res://scenes/main_game/start_menu.tscn"
 const MAP_SIZE := Vector2(1600.0, 1200.0)
 const GRID_STEP := 64.0
 const GRID_COLOR := Color(0.42, 0.46, 0.52, 1.0)

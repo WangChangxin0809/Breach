@@ -1,12 +1,12 @@
 [gd_scene format=4 uid="uid://dbijtrfobxewb"]
 
-[ext_resource type="Script" path="res://scripts/characters/Player.gd" id="1_empo7"]
+[ext_resource type="Script" uid="uid://dnvego6nijpo3" path="res://scripts/characters/player.gd" id="1_empo7"]
 [ext_resource type="Texture2D" uid="uid://d3v6gawopn6w6" path="res://assets/maps/UV.png" id="1_nnx5r"]
 [ext_resource type="Texture2D" uid="uid://byx2v6kbfy1a0" path="res://assets/spiritframes/Player_01/Idle.png" id="3_fxgxy"]
 [ext_resource type="Texture2D" uid="uid://b6gwg0eux3dba" path="res://assets/spiritframes/Player_01/Run.png" id="4_bl28q"]
-[ext_resource type="Texture2D" uid="uid://tenguv137nos" path="res://assets/Weapon/枪.png" id="4_fxgxy"]
-[ext_resource type="Texture2D" uid="uid://csmoowd46cc5f" path="res://assets/Other/light.png" id="6_bl28q"]
-[ext_resource type="Script" path="res://scripts/characters/Player_Camera.gd" id="6_fxgxy"]
+[ext_resource type="Texture2D" uid="uid://tenguv137nos" path="res://assets/weapon/gun.png" id="5_5uk4j"]
+[ext_resource type="Texture2D" uid="uid://csmoowd46cc5f" path="res://assets/other/light.png" id="6_bl28q"]
+[ext_resource type="Script" uid="uid://dlb4t24ho60nx" path="res://scripts/characters/player_camera.gd" id="6_fxgxy"]
 [ext_resource type="Texture2D" uid="uid://b67c3xfs5ryo7" path="res://assets/spiritframes/Player_02/Idle_Image Frames.png" id="7_bby0m"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_fxgxy"]
@@ -322,7 +322,7 @@ position = Vector2(0, -12)
 [node name="WeaponSprite" type="Sprite2D" parent="Player/WeaponPivot" unique_id=541549263]
 texture_filter = 1
 position = Vector2(11, 1)
-texture = ExtResource("4_fxgxy")
+texture = ExtResource("5_5uk4j")
 flip_h = true
 
 [node name="PointLight2D" type="PointLight2D" parent="Player/WeaponPivot" unique_id=1513359479]
@@ -338,6 +338,10 @@ offset = Vector2(163.855, -9.495)
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=752909453]
 position = Vector2(-1, -23)
 zoom = Vector2(2, 2)
+position_smoothing_enabled = true
+position_smoothing_speed = 1.0
+rotation_smoothing_enabled = true
+rotation_smoothing_speed = 1.0
 script = ExtResource("6_fxgxy")
 
 [node name="Player2" type="CharacterBody2D" parent="." unique_id=1369401630]
@@ -364,7 +368,7 @@ position = Vector2(0, -12)
 [node name="WeaponSprite" type="Sprite2D" parent="Player2/WeaponPivot" unique_id=136994291]
 texture_filter = 1
 position = Vector2(11, 1)
-texture = ExtResource("4_fxgxy")
+texture = ExtResource("5_5uk4j")
 flip_h = true
 
 [node name="CanvasModulate" type="CanvasModulate" parent="." unique_id=2065614486]
