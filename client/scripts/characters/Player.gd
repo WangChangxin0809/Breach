@@ -15,7 +15,7 @@ var pivot_x_offset: float = 0.0
 func _ready() -> void:
 	pivot_x_offset = abs(weapon_pivot.position.x)
 	
-	var cursor_texture := preload("res://assets/UI/Cursor.png") 
+	var cursor_texture := preload("res://assets/ui/Cursor.png")
 	Input.set_custom_mouse_cursor(cursor_texture, Input.CURSOR_ARROW, Vector2(16, 16))
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
