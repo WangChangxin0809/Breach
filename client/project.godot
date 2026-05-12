@@ -26,6 +26,10 @@ MCPGameInspector="*res://addons/godot_mcp/mcp_game_inspector_service.gd"
 
 window/stretch/mode="canvas_items"
 
+[dotnet]
+
+project/assembly_name="Breach-3v3"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
