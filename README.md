@@ -6,4 +6,4 @@
 ![alt text](client/assets/maps/castle.png)
 
 ## 测试角色
-![alt text](image.png)
+![alt text](image-2.png)

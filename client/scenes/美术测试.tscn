@@ -225,14 +225,13 @@ animations = [{
 }]
 
 [sub_resource type="Gradient" id="Gradient_bl28q"]
-interpolation_mode = 2
-offsets = PackedFloat32Array(0, 0.654386, 1)
+offsets = PackedFloat32Array(0.31578946, 0.48421052, 1)
 colors = PackedColorArray(1, 1, 1, 1, 0.022807002, 0.022807002, 0.022807002, 1, 0, 0, 0, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_4homf"]
 gradient = SubResource("Gradient_bl28q")
-width = 256
-height = 256
+width = 80
+height = 80
 fill = 1
 fill_from = Vector2(0.5, 0.5)
 
@@ -313,6 +312,12 @@ frame = 2
 frame_progress = 0.026481649
 flip_h = true
 
+[node name="PointLight2D2" type="PointLight2D" parent="Player" unique_id=559341765]
+position = Vector2(0, -18.333332)
+energy = 0.5
+shadow_enabled = true
+texture = SubResource("GradientTexture2D_4homf")
+
 [node name="WeaponPivot" type="Node2D" parent="Player" unique_id=1717204200]
 position = Vector2(0, -12)
 
@@ -322,18 +327,15 @@ position = Vector2(11, 1)
 texture = ExtResource("4_fxgxy")
 flip_h = true
 
-[node name="PointLight2D2" type="PointLight2D" parent="Player/WeaponPivot" unique_id=2046151916]
-position = Vector2(222.5, 207)
-color = Color(0.87049997, 0.79, 1, 1)
-shadow_enabled = true
-texture = SubResource("GradientTexture2D_4homf")
-
 [node name="PointLight2D" type="PointLight2D" parent="Player/WeaponPivot" unique_id=1513359479]
-position = Vector2(127.5, -3)
+texture_filter = 1
+position = Vector2(7.4999995, 0.33333325)
 scale = Vector2(0.5, 0.5)
 color = Color(1, 0.896, 0.88, 1)
 shadow_enabled = true
+shadow_filter = 1
 texture = ExtResource("6_bl28q")
+offset = Vector2(163.855, -9.495)
 
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=752909453]
 position = Vector2(-1, -23)
@@ -366,12 +368,6 @@ texture_filter = 1
 position = Vector2(11, 1)
 texture = ExtResource("4_fxgxy")
 flip_h = true
-
-[node name="PointLight2D" type="PointLight2D" parent="Player2" unique_id=559341765]
-position = Vector2(0, -15)
-color = Color(0.87049997, 0.79, 1, 1)
-shadow_enabled = true
-texture = SubResource("GradientTexture2D_4homf")
 
 [node name="CanvasModulate" type="CanvasModulate" parent="." unique_id=2065614486]
 color = Color(0.0114750685, 0.09419904, 0.1127126, 1)
