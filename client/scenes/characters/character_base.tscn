@@ -53,3 +53,6 @@ frame_progress = 0.5864134
 [node name="Basic" type="Node" parent="AbilitySlot" unique_id=2126523902]
 
 [node name="Ultimate" type="Node" parent="AbilitySlot" unique_id=463568376]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=395358551]
+zoom = Vector2(0.6, 0.6)

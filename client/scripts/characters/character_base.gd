@@ -16,7 +16,7 @@ signal respawned()
 @export var max_health := 100
 @export var respawn_delay := 1.5
 
-@onready var sprite: Sprite2D = get_node_or_null("Sprite")
+@onready var sprite: AnimatedSprite2D = get_node_or_null("AnimatedSprite2D")
 @onready var ability_basic: Node = get_node_or_null("AbilitySlot/Basic")
 @onready var ability_ultimate: Node = get_node_or_null("AbilitySlot/Ultimate")
 

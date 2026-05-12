@@ -13,13 +13,10 @@ position = Vector2(3632, 2706)
 scale = Vector2(5, 5)
 texture = ExtResource("2_4xk5c")
 
-[node name="CharacterBase" parent="." unique_id=813954092 instance=ExtResource("2_6vtm2")]
+[node name="TestCharacter" parent="." unique_id=813954092 instance=ExtResource("2_6vtm2")]
 position = Vector2(3500, 800)
 scale = Vector2(0.4, 0.4)
 local_movement_enabled = true
-
-[node name="Camera2D" type="Camera2D" parent="CharacterBase" unique_id=35291907]
-zoom = Vector2(0.6, 0.6)
 
 [node name="UILayer" type="CanvasLayer" parent="." unique_id=1409993949]
 layer = 10
