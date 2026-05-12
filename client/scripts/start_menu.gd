@@ -5,9 +5,11 @@ extends Control
 
 const TEST_MAP_SCENE := "res://scenes/test/test_map.tscn"
 const ONLINE_PROTO_SCENE := "res://scenes/main.tscn"
+const ART_TEST_SCENE := "res://scenes/美术测试.tscn"
 
 @onready var test_map_button: Button = get_node_or_null("CenterContainer/VBoxContainer/TestMapButton")
 @onready var online_proto_button: Button = get_node_or_null("CenterContainer/VBoxContainer/OnlineProtoButton")
+@onready var art_test_button: Button = get_node_or_null("CenterContainer/VBoxContainer/ArtTestButton")
 @onready var quit_button: Button = get_node_or_null("CenterContainer/VBoxContainer/QuitButton")
 
 func _ready() -> void:
@@ -15,6 +17,8 @@ func _ready() -> void:
 		test_map_button.pressed.connect(_on_test_map_pressed)
 	if online_proto_button:
 		online_proto_button.pressed.connect(_on_online_proto_pressed)
+	if art_test_button:
+		art_test_button.pressed.connect(_on_art_test_pressed)
 	if quit_button:
 		quit_button.pressed.connect(_on_quit_pressed)
 
@@ -23,6 +27,9 @@ func _on_test_map_pressed() -> void:
 
 func _on_online_proto_pressed() -> void:
 	get_tree().change_scene_to_file(ONLINE_PROTO_SCENE)
+
+func _on_art_test_pressed() -> void:
+	get_tree().change_scene_to_file(ART_TEST_SCENE)
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()

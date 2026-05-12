@@ -53,6 +53,11 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 text = "联网原型 (main.tscn)"
 
+[node name="ArtTestButton" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "美术测试 (Art Test)"
+
 [node name="QuitButton" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1037894023]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
