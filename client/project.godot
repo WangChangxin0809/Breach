@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Breach-3v3"
-run/main_scene="uid://cpofv51c2qka4"
+run/main_scene="uid://bco7grj2uicvq"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
