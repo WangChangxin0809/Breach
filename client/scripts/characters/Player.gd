@@ -2,6 +2,7 @@ extends CharacterBody2D
 
 # --- 属性 ---
 @export var move_speed: float = 200.0
+const PUSH_FORCE: float = 50.0
 
 # 【新增】用来记录武器轴心的水平偏移距离
 var pivot_x_offset: float = 0.0
@@ -29,6 +30,13 @@ func handle_movement() -> void:
 	var input_dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	velocity = input_dir * move_speed
 	move_and_slide()
+	
+	for i in get_slide_collision_count():
+		var collision = get_slide_collision(i)
+		var collider = collision.get_collider()
+		
+		if collider is RigidBody2D:
+			collider.apply_central_impulse(velocity.normalized() * PUSH_FORCE)
 
 # 2. Idle/Run 动画切换
 func handle_animation() -> void:
