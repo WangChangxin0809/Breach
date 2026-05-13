@@ -10,6 +10,9 @@
 [ext_resource type="Texture2D" uid="uid://csmoowd46cc5f" path="res://assets/other/light.png" id="6_bl28q"]
 [ext_resource type="Script" uid="uid://dlb4t24ho60nx" path="res://scripts/characters/player_camera.gd" id="6_fxgxy"]
 [ext_resource type="Texture2D" uid="uid://b67c3xfs5ryo7" path="res://assets/spiritframes/player_02/Idle_Image Frames.png" id="7_bby0m"]
+[ext_resource type="Script" uid="uid://b4y6weeplw47q" path="res://scripts/characters/enemy/TentacleEnemy.gd" id="11_utiah"]
+[ext_resource type="Shader" uid="uid://c35xjyfnwwi1d" path="res://assets/shader/moving_uv.gdshader" id="12_notue"]
+[ext_resource type="Texture2D" uid="uid://coj2l31ql7b4o" path="res://assets/spiritframes/01.png" id="13_q10uu"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_fxgxy"]
 resource_name = "01"
@@ -328,6 +331,21 @@ polygon = PackedVector2Array(-47, -89, 14.94623, -89, 15, -94, 23, -94, 25.69814
 radius = 27.499998
 height = 96.0
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_q10uu"]
+shader = ExtResource("12_notue")
+
+[sub_resource type="Curve" id="Curve_notue"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.20498043), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_notue"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_q10uu"]
+load_path = "res://.godot/imported/UV.png-e0e42ea6b7cb9da51f50dd9a991fc866.ctex"
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_utiah"]
+radius = 196.367
+
 [node name="美术测试" type="Node2D" unique_id=713619170]
 
 [node name="Node2D" type="Node2D" parent="." unique_id=861570015]
@@ -462,8 +480,9 @@ scale = Vector2(0.18940973, 0.23107049)
 texture = ExtResource("1_nnx5r")
 polygon = PackedVector2Array(-1398.6144, -907, 478.06754, -943, 511.28314, 589, -384.70068, 585.27014, -1410.4772, 581)
 
-[node name="Player" type="CharacterBody2D" parent="." unique_id=772553087]
+[node name="Player" type="CharacterBody2D" parent="." unique_id=772553087 groups=["Player"]]
 y_sort_enabled = true
+position = Vector2(-397, 0)
 scale = Vector2(1.2, 1.2)
 motion_mode = 1
 script = ExtResource("1_empo7")
@@ -607,3 +626,33 @@ position = Vector2(0, -56)
 rotation = 1.5707964
 shape = SubResource("CapsuleShape2D_5uk4j")
 debug_color = Color(2.887845e-06, 0.5747464, 0.8088486, 0.7176471)
+
+[node name="TentacleEnemy" type="Node2D" parent="." unique_id=422210306]
+script = ExtResource("11_utiah")
+segment_count = 20
+move_speed = 4.0
+
+[node name="Line2D" type="Line2D" parent="TentacleEnemy" unique_id=1064923290]
+top_level = true
+texture_repeat = 2
+material = SubResource("ShaderMaterial_q10uu")
+position = Vector2(67, 2)
+points = PackedVector2Array(-67, -2, -160.25438, -2, -257, -2)
+width = 40.0
+width_curve = SubResource("Curve_notue")
+default_color = Color(0.7, 0.7, 0.7, 1)
+gradient = SubResource("Gradient_notue")
+texture = SubResource("CompressedTexture2D_q10uu")
+texture_mode = 1
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="DetectionArea" type="Area2D" parent="TentacleEnemy" unique_id=606375728]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TentacleEnemy/DetectionArea" unique_id=1139577475]
+shape = SubResource("CircleShape2D_utiah")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=980449951]
+texture_filter = 1
+position = Vector2(-32, -167)
+texture = ExtResource("13_q10uu")
