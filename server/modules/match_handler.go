@@ -72,8 +72,9 @@ func newMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime
 }
 
 func (m *BreachMatch) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, params map[string]interface{}) (interface{}, int, string) {
-	logger.Info("breach match initialized tick_rate=%d", config.MATCH_TICK_RATE)
-	return state.NewMatchState(), config.MATCH_TICK_RATE, "mode=bomb_defusal"
+	cfg := config.Active()
+	logger.Info("breach match initialized config_version=%d tick_rate=%d", cfg.Version, cfg.Match.TickRate)
+	return state.NewMatchState(), cfg.Match.TickRate, "mode=bomb_defusal"
 }
 
 func (m *BreachMatch) MatchJoinAttempt(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, matchState interface{}, presence runtime.Presence, metadata map[string]string) (interface{}, bool, string) {
@@ -82,7 +83,8 @@ func (m *BreachMatch) MatchJoinAttempt(ctx context.Context, logger runtime.Logge
 		logger.Error("invalid match state type during join attempt")
 		return matchState, false, "internal match state error"
 	}
-	if _, exists := current.Players[presence.GetUserId()]; !exists && len(current.Players) >= config.MATCH_MAX_PLAYERS {
+	cfg := config.Active()
+	if _, exists := current.Players[presence.GetUserId()]; !exists && len(current.Players) >= cfg.Match.MaxPlayers {
 		return current, false, "match is full"
 	}
 	return current, true, ""
@@ -90,6 +92,8 @@ func (m *BreachMatch) MatchJoinAttempt(ctx context.Context, logger runtime.Logge
 
 func (m *BreachMatch) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, matchState interface{}, presences []runtime.Presence) interface{} {
 	current := matchState.(*state.MatchState)
+	cfg := config.Active()
+	character := cfg.DefaultCharacter()
 	for _, presence := range presences {
 		player, exists := current.Players[presence.GetUserId()]
 		if !exists {
@@ -100,10 +104,11 @@ func (m *BreachMatch) MatchJoin(ctx context.Context, logger runtime.Logger, db *
 				SessionID:   presence.GetSessionId(),
 				Username:    presence.GetUsername(),
 				DisplayName: presence.GetUsername(),
+				CharacterID: character.ID,
 				Faction:     faction,
 				Position:    spawn,
 				LastValid:   spawn,
-				Health:      config.PLAYER_BASE_HEALTH,
+				Health:      character.BaseHealth,
 			}
 			current.Players[player.UserID] = player
 		}
@@ -130,7 +135,8 @@ func (m *BreachMatch) MatchLeave(ctx context.Context, logger runtime.Logger, db 
 
 func (m *BreachMatch) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, matchState interface{}, messages []runtime.MatchData) interface{} {
 	current := matchState.(*state.MatchState)
-	if current.ConnectedCount() == 0 && tick > int64(config.MATCH_TICK_RATE*5) {
+	cfg := config.Active()
+	if current.ConnectedCount() == 0 && tick > int64(cfg.Match.TickRate*5) {
 		logger.Info("terminating empty match tick=%d", tick)
 		return nil
 	}
@@ -243,9 +249,26 @@ func assignFaction(current *state.MatchState) state.Faction {
 }
 
 func spawnPoint(faction state.Faction, index int) state.Vec2 {
+	cfg := config.Active()
+	if point, ok := configuredSpawnPoint(cfg, faction, index); ok {
+		return point
+	}
 	offset := float64(index%3) * 42
 	if faction == state.FACTION_ATTACKERS {
 		return state.Vec2{X: 120 + offset, Y: 180 + offset}
 	}
-	return state.Vec2{X: config.MAP_WIDTH - 120 - offset, Y: config.MAP_HEIGHT - 180 - offset}
+	return state.Vec2{X: cfg.Map.Width - 120 - offset, Y: cfg.Map.Height - 180 - offset}
+}
+
+func configuredSpawnPoint(cfg *config.GameConfig, faction state.Faction, index int) (state.Vec2, bool) {
+	key := "defenders"
+	if faction == state.FACTION_ATTACKERS {
+		key = "attackers"
+	}
+	points := cfg.Map.SpawnPoints[key]
+	if len(points) == 0 {
+		return state.Vec2{}, false
+	}
+	point := points[index%len(points)]
+	return state.Vec2{X: point.X, Y: point.Y}, true
 }

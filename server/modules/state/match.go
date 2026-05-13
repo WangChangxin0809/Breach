@@ -26,10 +26,11 @@ type MatchState struct {
 }
 
 func NewMatchState() *MatchState {
+	cfg := config.Active()
 	return &MatchState{
 		Players:  make(map[string]*Player),
 		Phase:    ROUND_WAITING,
-		TickRate: config.MATCH_TICK_RATE,
+		TickRate: cfg.Match.TickRate,
 	}
 }
 

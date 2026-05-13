@@ -1,0 +1,22 @@
+{
+  "weapons": [
+    {
+      "id": "default_sidearm",
+      "slot": "sidearm",
+      "damage": 20,
+      "fire_rate": 4.0,
+      "range": 520.0,
+      "ammo_capacity": 12,
+      "unlock_cost": 0
+    },
+    {
+      "id": "default_primary",
+      "slot": "primary",
+      "damage": 28,
+      "fire_rate": 8.0,
+      "range": 760.0,
+      "ammo_capacity": 30,
+      "unlock_cost": 0
+    }
+  ]
+}

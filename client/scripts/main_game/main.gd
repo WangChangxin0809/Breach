@@ -37,22 +37,23 @@ func _ready() -> void:
 	_on_status_changed("Enter email, login, then start matchmaking")
 
 func _physics_process(delta: float) -> void:
-	if my_user_id.is_empty() or my_match_id.is_empty():
-		return
-	var direction := Input.get_vector("left", "right", "up", "down")
+	var direction := _movement_input_vector()
 	if direction == Vector2.ZERO:
 		return
 	var predicted_position := local_position + direction * Config.PLAYER_MOVE_SPEED * delta
 	if _is_valid_local_position(predicted_position):
 		local_position = predicted_position
-		network.send_move(client_tick, local_position, direction)
-		client_tick += 1
+		if _is_connected_to_authoritative_match():
+			network.send_move(client_tick, local_position, direction)
+			client_tick += 1
 		queue_redraw()
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, Config.MAP_SIZE), Color(0.08, 0.09, 0.1), true)
 	for obstacle in Config.SOLID_OBSTACLES:
 		draw_rect(obstacle, Color(0.27, 0.29, 0.31), true)
+	if not players.has(my_user_id):
+		draw_rect(Rect2(local_position - PLAYER_SIZE * 0.5, PLAYER_SIZE), Color(0.45, 0.78, 1.0), true)
 	for player_id in players:
 		var player: Dictionary = players[player_id]
 		if not player["connected"]:
@@ -205,6 +206,10 @@ func _update_match_ui() -> void:
 	player_list.text = "\n".join(lines)
 
 func _setup_input_actions() -> void:
+	_add_key_action("ui_left", KEY_A)
+	_add_key_action("ui_right", KEY_D)
+	_add_key_action("ui_up", KEY_W)
+	_add_key_action("ui_down", KEY_S)
 	_add_key_action("left", KEY_A)
 	_add_key_action("left", KEY_LEFT)
 	_add_key_action("right", KEY_D)
@@ -221,6 +226,15 @@ func _add_key_action(action: String, keycode: Key) -> void:
 	event.physical_keycode = keycode
 	if not InputMap.action_has_event(action, event):
 		InputMap.action_add_event(action, event)
+
+func _movement_input_vector() -> Vector2:
+	var direction := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	if direction == Vector2.ZERO:
+		direction = Input.get_vector("left", "right", "up", "down")
+	return direction
+
+func _is_connected_to_authoritative_match() -> bool:
+	return not my_user_id.is_empty() and not my_match_id.is_empty()
 
 func _default_email() -> String:
 	var args := OS.get_cmdline_user_args()

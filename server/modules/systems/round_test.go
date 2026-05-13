@@ -25,9 +25,10 @@ func TestUpdateRoundTransitionsWaitingToPlaying(t *testing.T) {
 }
 
 func TestUpdateRoundTransitionsPlayingToEnded(t *testing.T) {
+	cfg := config.Active()
 	matchState := state.NewMatchState()
 	matchState.Phase = state.ROUND_PLAYING
-	matchState.RoundStarted = time.Now().UTC().Add(-(time.Duration(config.ROUND_DURATION_SEC) + 1) * time.Second)
+	matchState.RoundStarted = time.Now().UTC().Add(-(time.Duration(cfg.Match.RoundDurationSec) + 1) * time.Second)
 
 	UpdateRound(matchState, time.Now().UTC())
 

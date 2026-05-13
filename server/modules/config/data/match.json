@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "match": {
+    "tick_rate": 20,
+    "max_players": 6,
+    "min_players": 2,
+    "round_duration_sec": 120,
+    "round_end_delay_sec": 4,
+    "rounds_per_half": 6,
+    "points_per_player_kill": 100,
+    "points_per_zombie_kill": 25
+  },
+  "map_file": "maps/dev_map_collision.json"
+}

@@ -19,6 +19,7 @@ type Player struct {
 	SessionID   string
 	Username    string
 	DisplayName string
+	CharacterID string
 	Faction     Faction
 	Position    Vec2
 	LastValid   Vec2

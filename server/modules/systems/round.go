@@ -8,19 +8,20 @@ import (
 )
 
 func UpdateRound(matchState *state.MatchState, now time.Time) {
+	cfg := config.Active()
 	switch matchState.Phase {
 	case state.ROUND_WAITING:
-		if matchState.ConnectedCount() >= config.MATCH_MIN_PLAYERS {
+		if matchState.ConnectedCount() >= cfg.Match.MinPlayers {
 			matchState.Phase = state.ROUND_PLAYING
 			matchState.RoundStarted = now
 		}
 	case state.ROUND_PLAYING:
-		if now.Sub(matchState.RoundStarted) >= time.Duration(config.ROUND_DURATION_SEC)*time.Second {
+		if now.Sub(matchState.RoundStarted) >= time.Duration(cfg.Match.RoundDurationSec)*time.Second {
 			matchState.Phase = state.ROUND_ENDED
 			matchState.RoundEnded = now
 		}
 	case state.ROUND_ENDED:
-		if now.Sub(matchState.RoundEnded) >= time.Duration(config.ROUND_END_DELAY_SEC)*time.Second {
+		if now.Sub(matchState.RoundEnded) >= time.Duration(cfg.Match.RoundEndDelaySec)*time.Second {
 			matchState.Phase = state.ROUND_WAITING
 			matchState.RoundStarted = time.Time{}
 			matchState.RoundEnded = time.Time{}
@@ -29,10 +30,11 @@ func UpdateRound(matchState *state.MatchState, now time.Time) {
 }
 
 func RoundTimeRemaining(matchState *state.MatchState, now time.Time) float32 {
+	cfg := config.Active()
 	if matchState.Phase != state.ROUND_PLAYING || matchState.RoundStarted.IsZero() {
-		return float32(config.ROUND_DURATION_SEC)
+		return float32(cfg.Match.RoundDurationSec)
 	}
-	remaining := time.Duration(config.ROUND_DURATION_SEC)*time.Second - now.Sub(matchState.RoundStarted)
+	remaining := time.Duration(cfg.Match.RoundDurationSec)*time.Second - now.Sub(matchState.RoundStarted)
 	if remaining < 0 {
 		return 0
 	}

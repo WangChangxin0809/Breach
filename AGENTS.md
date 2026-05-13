@@ -53,7 +53,7 @@ project-root/
 │   └── project.godot                 # Godot project configuration
 ├── server/                           # Go back-end (Nakama authoritative match logic)
 │   ├── modules/                      # Server-authoritative Go code (match logic, config, handlers)
-│   │   ├── config/                   # Game parameter constants
+│   │   ├── config/                   # Typed game config loader and JSON data files
 │   │   ├── state/                    # Match/player/weapon state
 │   │   ├── systems/                  # Game systems (movement, damage, round, ...)
 │   │   ├── protobuf/                 # Protocol Buffers definitions & generated code
@@ -152,24 +152,15 @@ The game uses a **server‑authoritative** match system. The server holds the si
 - **Rate limiting**: Implement rate limits on sensitive actions to prevent spam/DoS attacks.
 
 ### 3. Configuration & Data
-All tuneable game parameters **must** be defined in `server/modules/config/` as Go exported constants. Split them into logical files such as:
+All tuneable game parameters **must** be defined as JSON data under `server/modules/config/data/` and loaded through `server/modules/config.GameConfig`.
 
-- `weapons.go`: damage, fire rate, range, reload time, unlock cost, etc.
-- `characters.go`: base health, movement speed, respawn time, vision radius/cone length.
-- `match.go`: round duration, rounds per half, points per kill (player/zombie), faction upgrade thresholds.
+- `characters.json`: base health, movement speed, respawn time, vision radius/cone length.
+- `weapons.json`: damage, fire rate, range, reload time, unlock cost, etc.
+- `match.json`: round duration, rounds per half, points per kill, map bounds, solid obstacles, faction upgrade thresholds.
 
-**Example (`server/modules/config/characters.go`)**:
-```go
-package config
+The `config` package owns parsing, validation, default embedded data, and the `BREACH_CONFIG_DIR` runtime override for local/server deployments. Stable technical identifiers such as match module names, operation codes, protocol versions, and hard safety limits may remain Go constants.
 
-const (
-    BASE_MOVE_SPEED = 200.0
-    MAX_HEALTH      = 100
-    RESPAWN_DELAY   = 5 // seconds
-)
-```
-
-All game logic must import these constants; **never hard‑code values** outside the config package.
+All game logic must read tuneable values from `config.Active()` or a passed `*config.GameConfig`; **never hard-code gameplay numbers** outside the config package.
 
 ### 4. Prototyping & Minimal Visuals
 During active development, keep scenes visually minimal to speed up iteration and reduce distractions.

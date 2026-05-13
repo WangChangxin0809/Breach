@@ -1,0 +1,14 @@
+{
+  "default_character_id": "recruit",
+  "characters": [
+    {
+      "id": "recruit",
+      "base_health": 100,
+      "max_speed": 220.0,
+      "respawn_delay_sec": 5,
+      "collision_radius": 16.0,
+      "vision_radius": 180.0,
+      "vision_cone_length": 420.0
+    }
+  ]
+}
