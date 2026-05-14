@@ -218,10 +218,11 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 layout_mode = 2
 theme_override_constants/separation = 18
 
-[node name="PortraitBlock" type="ColorRect" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=1155031441]
+[node name="PortraitBlock" type="TextureRect" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=1155031441]
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
-color = Color(0.82, 0.38, 0.14, 1)
+expand_mode = 3
+stretch_mode = 5
 
 [node name="NameLabel" type="Label" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=719223122]
 layout_mode = 2
