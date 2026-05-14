@@ -1,0 +1,187 @@
+[gd_scene format=3 uid="uid://drmx5tqo3p8kn"]
+
+[ext_resource type="Script" path="res://scripts/main_game/lobby.gd" id="1_lobby"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button"]
+bg_color = Color(0.16, 0.18, 0.23, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.48, 0.54, 0.62, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
+bg_color = Color(0.2, 0.23, 0.29, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.28, 0.72, 0.82, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 28.0
+content_margin_top = 24.0
+content_margin_right = 28.0
+content_margin_bottom = 24.0
+bg_color = Color(0.12, 0.14, 0.18, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.28, 0.72, 0.82, 1)
+
+[node name="Lobby" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_lobby")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.055, 0.065, 0.095, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MenuVBox" type="VBoxContainer" parent="Center"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="Center/MenuVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 46
+text = "选择模式"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="Center/MenuVBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="CreateRoomButton" type="Button" parent="Center/MenuVBox"]
+custom_minimum_size = Vector2(420, 72)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 34
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_hover")
+text = "创建房间"
+
+[node name="JoinRoomButton" type="Button" parent="Center/MenuVBox"]
+custom_minimum_size = Vector2(420, 72)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 34
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_hover")
+text = "加入房间"
+
+[node name="StatusLabel" type="Label" parent="Center/MenuVBox"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="BackButton" type="Button" parent="Center/MenuVBox"]
+custom_minimum_size = Vector2(420, 58)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_hover")
+text = "返回"
+
+[node name="JoinOverlay" type="ColorRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="JoinCenter" type="CenterContainer" parent="JoinOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="JoinPanel" type="PanelContainer" parent="JoinOverlay/JoinCenter"]
+custom_minimum_size = Vector2(460, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="JoinVBox" type="VBoxContainer" parent="JoinOverlay/JoinCenter/JoinPanel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="JoinTitle" type="Label" parent="JoinOverlay/JoinCenter/JoinPanel/JoinVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 32
+text = "加入房间"
+horizontal_alignment = 1
+
+[node name="JoinHint" type="Label" parent="JoinOverlay/JoinCenter/JoinPanel/JoinVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 18
+text = "粘贴房主分享的小队码"
+horizontal_alignment = 1
+
+[node name="PartyIdInput" type="LineEdit" parent="JoinOverlay/JoinCenter/JoinPanel/JoinVBox"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+placeholder_text = "小队码"
+
+[node name="JoinButtons" type="HBoxContainer" parent="JoinOverlay/JoinCenter/JoinPanel/JoinVBox"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="ConfirmButton" type="Button" parent="JoinOverlay/JoinCenter/JoinPanel/JoinVBox/JoinButtons"]
+custom_minimum_size = Vector2(130, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_hover")
+text = "加入"
+
+[node name="CancelButton" type="Button" parent="JoinOverlay/JoinCenter/JoinPanel/JoinVBox/JoinButtons"]
+custom_minimum_size = Vector2(130, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_hover")
+text = "返回"
+
+[node name="JoinStatusLabel" type="Label" parent="JoinOverlay/JoinCenter/JoinPanel/JoinVBox"]
+custom_minimum_size = Vector2(0, 26)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.28, 0.72, 0.82, 1)
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 1

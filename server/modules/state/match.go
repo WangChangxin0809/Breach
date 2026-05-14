@@ -23,6 +23,7 @@ type MatchState struct {
 	RoundStarted time.Time
 	RoundEnded   time.Time
 	TickRate     int
+	GameMatchID  string
 }
 
 func NewMatchState() *MatchState {

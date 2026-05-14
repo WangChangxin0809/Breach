@@ -54,6 +54,36 @@ func (m *CharacterSelectState) Reset()         { *m = CharacterSelectState{} }
 func (m *CharacterSelectState) String() string { return proto.CompactTextString(m) }
 func (*CharacterSelectState) ProtoMessage()    {}
 
+type RoomReady struct {
+	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Ready   bool   `protobuf:"varint,2,opt,name=ready,proto3" json:"ready,omitempty"`
+}
+
+func (m *RoomReady) Reset()         { *m = RoomReady{} }
+func (m *RoomReady) String() string { return proto.CompactTextString(m) }
+func (*RoomReady) ProtoMessage()    {}
+
+type RoomPlayer struct {
+	UserId      string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	DisplayName string `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Ready       bool   `protobuf:"varint,3,opt,name=ready,proto3" json:"ready,omitempty"`
+}
+
+func (m *RoomPlayer) Reset()         { *m = RoomPlayer{} }
+func (m *RoomPlayer) String() string { return proto.CompactTextString(m) }
+func (*RoomPlayer) ProtoMessage()    {}
+
+type RoomState struct {
+	Version     uint32        `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	PlayerCount int32         `protobuf:"varint,2,opt,name=player_count,json=playerCount,proto3" json:"player_count,omitempty"`
+	Players     []*RoomPlayer `protobuf:"bytes,3,rep,name=players,proto3" json:"players,omitempty"`
+	GameMatchId string        `protobuf:"bytes,4,opt,name=game_match_id,json=gameMatchId,proto3" json:"game_match_id,omitempty"`
+}
+
+func (m *RoomState) Reset()         { *m = RoomState{} }
+func (m *RoomState) String() string { return proto.CompactTextString(m) }
+func (*RoomState) ProtoMessage()    {}
+
 type PlayerState struct {
 	UserId      string   `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	DisplayName string   `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`

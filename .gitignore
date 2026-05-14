@@ -4,3 +4,10 @@
 
 # Build / runtime logs
 *.log
+
+# Claude & development tools
+.claude/
+.serena/
+.playwright-cli/
+.agents/
+skills-lock.json

@@ -1,7 +1,7 @@
 extends Control
 
 const SINGLE_PRACTICE_SCENE := "res://scenes/test/art_test.tscn"
-const ROOM_SCENE := "res://scenes/main_game/room.tscn"
+const LOBBY_SCENE := "res://scenes/main_game/lobby.tscn"
 
 @onready var single_practice_button: Button = $Center/MenuVBox/SinglePracticeButton
 @onready var multiplayer_button: Button = $Center/MenuVBox/MultiplayerButton
@@ -31,7 +31,7 @@ func _on_single_practice_pressed() -> void:
 
 func _on_multiplayer_pressed() -> void:
 	if AuthManager.is_logged_in():
-		get_tree().change_scene_to_file(ROOM_SCENE)
+		get_tree().change_scene_to_file(LOBBY_SCENE)
 		return
 	_show_login_prompt()
 
@@ -54,7 +54,7 @@ func _on_cancel_login_pressed() -> void:
 	login_button.disabled = false
 
 func _on_login_succeeded(_user_id: String, _username: String) -> void:
-	get_tree().change_scene_to_file(ROOM_SCENE)
+	get_tree().change_scene_to_file(LOBBY_SCENE)
 
 func _on_login_failed(message: String) -> void:
 	login_button.disabled = false

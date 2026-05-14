@@ -19,6 +19,59 @@ static func encode_character_select(character_id: String) -> PackedByteArray:
 	_write_string_field(out, 2, character_id)
 	return out
 
+static func encode_room_ready(ready: bool) -> PackedByteArray:
+	var out := PackedByteArray()
+	_write_varint_field(out, 1, Config.PROTOCOL_VERSION)
+	_write_varint_field(out, 2, 1 if ready else 0)
+	return out
+
+static func decode_room_state(bytes: PackedByteArray) -> Dictionary:
+	var cursor := [0]
+	var result := {
+		"version": 0,
+		"player_count": 0,
+		"players": [],
+		"game_match_id": "",
+	}
+	while cursor[0] < bytes.size():
+		var tag := _read_varint(bytes, cursor)
+		var field := tag >> 3
+		var wire := tag & 7
+		match field:
+			1:
+				result["version"] = _read_varint(bytes, cursor)
+			2:
+				result["player_count"] = _read_varint(bytes, cursor)
+			3:
+				result["players"].append(decode_room_player(_read_length_delimited(bytes, cursor)))
+			4:
+				result["game_match_id"] = _read_length_delimited(bytes, cursor).get_string_from_utf8()
+			_:
+				_skip_field(bytes, cursor, wire)
+	return result
+
+static func decode_room_player(bytes: PackedByteArray) -> Dictionary:
+	var cursor := [0]
+	var result := {
+		"user_id": "",
+		"display_name": "",
+		"ready": false,
+	}
+	while cursor[0] < bytes.size():
+		var tag := _read_varint(bytes, cursor)
+		var field := tag >> 3
+		var wire := tag & 7
+		match field:
+			1:
+				result["user_id"] = _read_length_delimited(bytes, cursor).get_string_from_utf8()
+			2:
+				result["display_name"] = _read_length_delimited(bytes, cursor).get_string_from_utf8()
+			3:
+				result["ready"] = _read_varint(bytes, cursor) != 0
+			_:
+				_skip_field(bytes, cursor, wire)
+	return result
+
 static func encode_vector2(value: Vector2) -> PackedByteArray:
 	var out := PackedByteArray()
 	_write_fixed32_field(out, 1, value.x)

@@ -21,6 +21,9 @@ const (
 	OpCodeGameState            int64 = 2
 	OpCodeCharacterSelect      int64 = 3
 	OpCodeCharacterSelectState int64 = 4
+	OpCodeRoomReady            int64 = 5
+	OpCodeRoomState            int64 = 6
+	OpCodeRoomStartMatch       int64 = 7
 
 	RpcCreateMatch = "create_breach_match"
 )
@@ -121,6 +124,7 @@ func (m *BreachMatch) MatchJoin(ctx context.Context, logger runtime.Logger, db *
 		player.Connected = true
 		logger.Info("player joined user_id=%s session_id=%s faction=%d", player.UserID, player.SessionID, player.Faction)
 	}
+	_ = broadcastRoomState(logger, dispatcher, current)
 	return current
 }
 
@@ -132,6 +136,7 @@ func (m *BreachMatch) MatchLeave(ctx context.Context, logger runtime.Logger, db 
 			logger.Info("player left user_id=%s session_id=%s", presence.GetUserId(), presence.GetSessionId())
 		}
 	}
+	_ = broadcastRoomState(logger, dispatcher, current)
 	return current
 }
 
@@ -149,6 +154,10 @@ func (m *BreachMatch) MatchLoop(ctx context.Context, logger runtime.Logger, db *
 			processMove(logger, dispatcher, current, message, tickInterval)
 		case OpCodeCharacterSelect:
 			processCharacterSelect(logger, dispatcher, current, message)
+		case OpCodeRoomReady:
+			processRoomReady(logger, dispatcher, current, message)
+		case OpCodeRoomStartMatch:
+			processRoomStartMatch(logger, dispatcher, nk, current, message)
 		default:
 			logger.Warn("ignored unknown match op_code=%d user_id=%s", message.GetOpCode(), message.GetUserId())
 		}
@@ -337,4 +346,73 @@ func configuredSpawnPoint(cfg *config.GameConfig, faction state.Faction, index i
 	}
 	point := points[index%len(points)]
 	return state.Vec2{X: point.X, Y: point.Y}, true
+}
+
+func processRoomReady(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState, message runtime.MatchData) {
+	player, ok := current.Players[message.GetUserId()]
+	if !ok || !player.Connected {
+		return
+	}
+	ready := &gamepb.RoomReady{}
+	if err := proto.Unmarshal(message.GetData(), ready); err != nil {
+		return
+	}
+	if ready.Version != gamepb.PROTOCOL_VERSION {
+		return
+	}
+	player.Ready = ready.Ready
+	logger.Info("player ready changed user_id=%s ready=%v", player.UserID, player.Ready)
+	if err := broadcastRoomState(logger, dispatcher, current); err != nil {
+		logger.Error("failed to broadcast room state after ready: %v", err)
+	}
+}
+
+func processRoomStartMatch(logger runtime.Logger, dispatcher runtime.MatchDispatcher, nk runtime.NakamaModule, current *state.MatchState, message runtime.MatchData) {
+	player, ok := current.Players[message.GetUserId()]
+	if !ok || !player.Connected {
+		return
+	}
+	sorted := current.SortedPlayers()
+	if len(sorted) == 0 || sorted[0].UserID != player.UserID {
+		logger.Warn("room start rejected: not host user_id=%s", player.UserID)
+		return
+	}
+	for _, p := range current.Players {
+		if p.Connected && !p.Ready {
+			logger.Warn("room start rejected: not all ready user_id=%s", player.UserID)
+			return
+		}
+	}
+	gameMatchID, err := nk.MatchCreate(context.Background(), config.MATCH_MODULE_NAME, map[string]interface{}{})
+	if err != nil {
+		logger.Error("failed to create game match from room: %v", err)
+		return
+	}
+	logger.Info("room host started game room=%s game_match=%s", message.GetUserId(), gameMatchID)
+	current.GameMatchID = gameMatchID
+	if err := broadcastRoomState(logger, dispatcher, current); err != nil {
+		logger.Error("failed to broadcast room state with game match: %v", err)
+	}
+}
+
+func broadcastRoomState(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState) error {
+	players := current.SortedPlayers()
+	snapshot := &gamepb.RoomState{
+		Version:     gamepb.PROTOCOL_VERSION,
+		PlayerCount: int32(len(players)),
+		Players:     make([]*gamepb.RoomPlayer, 0, len(players)),
+		GameMatchId: current.GameMatchID,
+	}
+	for _, player := range players {
+		snapshot.Players = append(snapshot.Players, &gamepb.RoomPlayer{
+			UserId:      player.UserID,
+			DisplayName: player.DisplayName,
+			Ready:       player.Ready,
+		})
+	}
+	data, err := proto.Marshal(snapshot)
+	if err != nil {
+		return fmt.Errorf("marshal room state: %w", err)
+	}
+	return dispatcher.BroadcastMessage(OpCodeRoomState, data, current.ActivePresences(), nil, true)
 }

@@ -9,12 +9,17 @@ const RPC_CREATE_MATCH := "create_breach_match"
 const MATCHMAKER_QUERY := "*"
 const MATCHMAKER_MIN_PLAYERS := 2
 const MATCHMAKER_MAX_PLAYERS := 6
+const PARTY_MAX_SIZE := 3
+const PARTY_OP_READY := 1
 
 const PROTOCOL_VERSION := 1
 const OP_MOVE := 1
 const OP_GAME_STATE := 2
 const OP_CHARACTER_SELECT := 3
 const OP_CHARACTER_SELECT_STATE := 4
+const OP_ROOM_READY := 5
+const OP_ROOM_STATE := 6
+const OP_ROOM_START_MATCH := 7
 
 const PLAYER_MOVE_SPEED := 220.0
 const PLAYER_RADIUS := 16.0

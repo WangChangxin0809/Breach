@@ -43,6 +43,24 @@ message PlayerState {
   bool connected = 6;
 }
 
+message RoomReady {
+  uint32 version = 1;
+  bool ready = 2;
+}
+
+message RoomPlayer {
+  string user_id = 1;
+  string display_name = 2;
+  bool ready = 3;
+}
+
+message RoomState {
+  uint32 version = 1;
+  int32 player_count = 2;
+  repeated RoomPlayer players = 3;
+  string game_match_id = 4;
+}
+
 message GameState {
   uint32 version = 1;
   uint64 tick = 2;

@@ -1,8 +1,14 @@
+class_name Room
 extends Control
 
-const START_MENU_SCENE := "res://scenes/main_game/start_menu.tscn"
-const CHARACTER_SELECT_SCENE := "res://scenes/main_game/character_select.tscn"
-const MAX_PARTY_SIZE := 3
+enum Mode { CREATE, JOIN }
+enum State { LOBBY, MATCHMAKING }
+
+static var mode := Mode.CREATE
+static var join_target := ""
+
+const LOBBY_SCENE: String = "res://scenes/main_game/lobby.tscn"
+const CHARACTER_SELECT_SCENE: String = "res://scenes/main_game/character_select.tscn"
 
 const COLOR_TEXT := Color(0.93, 0.94, 0.88)
 const COLOR_MUTED := Color(0.65, 0.68, 0.72)
@@ -12,13 +18,11 @@ const COLOR_HOST := Color(1.0, 0.76, 0.35)
 const COLOR_AVATAR := Color(0.28, 0.72, 0.82)
 const COLOR_EMPTY_AVATAR := Color(0.34, 0.37, 0.42)
 
-var party_members: Array[Dictionary] = [
-	{
-		"name": "玩家1",
-		"is_host": true,
-		"is_ready": false,
-	},
-]
+var is_ready: bool = false
+var remote_ready_states: Dictionary = {}
+var members: Array[Dictionary] = []
+var leader_id: String = ""
+var room_state: State = State.LOBBY
 
 @onready var back_button: Button = $RootMargin/MainVBox/Header/BackButton
 @onready var account_label: Label = $RootMargin/MainVBox/Header/AccountLabel
@@ -26,106 +30,258 @@ var party_members: Array[Dictionary] = [
 @onready var status_label: Label = $RootMargin/MainVBox/ContentCenter/ContentVBox/StatusLabel
 @onready var ready_button: Button = $RootMargin/MainVBox/ContentCenter/ContentVBox/FooterButtons/ReadyButton
 @onready var start_match_button: Button = $RootMargin/MainVBox/ContentCenter/ContentVBox/FooterButtons/StartMatchButton
+@onready var party_id_input: LineEdit = $RootMargin/MainVBox/Header/JoinBar/PartyIdInput
+@onready var join_button: Button = $RootMargin/MainVBox/Header/JoinBar/JoinButton
 @onready var slots: Array[PanelContainer] = [
 	$RootMargin/MainVBox/ContentCenter/ContentVBox/PartyPanel/PartyVBox/Slot1,
 	$RootMargin/MainVBox/ContentCenter/ContentVBox/PartyPanel/PartyVBox/Slot2,
 	$RootMargin/MainVBox/ContentCenter/ContentVBox/PartyPanel/PartyVBox/Slot3,
 ]
 
+
 func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	ready_button.pressed.connect(_on_ready_pressed)
 	start_match_button.pressed.connect(_on_start_match_pressed)
-	AuthManager.network.connected_to_match.connect(_on_connected_to_match)
-	AuthManager.network.status_changed.connect(_on_network_status_changed)
+	join_button.pressed.connect(_on_join_pressed)
 	_connect_invite_buttons()
-	_apply_logged_in_player()
-	_refresh_room()
+	_update_account_label()
+	_connect_network_signals()
+	if mode == Mode.CREATE:
+		_create_room()
+	else:
+		_setup_join_mode()
 
-func set_party_members(members: Array[Dictionary]) -> void:
-	party_members = members.slice(0, MAX_PARTY_SIZE)
-	_refresh_room()
 
-func _apply_logged_in_player() -> void:
+func _connect_invite_buttons() -> void:
+	for slot: PanelContainer in slots:
+		var slot_name: String = slot.name.trim_prefix("Slot")
+		var invite_button: Button = slot.get_node("Slot%sHBox/InviteButton" % slot_name)
+		invite_button.pressed.connect(_on_invite_pressed)
+
+
+func _connect_network_signals() -> void:
+	var network := AuthManager.network
+	network.connected_to_match.connect(_on_connected_to_match)
+	network.room_joined.connect(_on_room_joined)
+	network.room_presences_received.connect(_on_room_presences_received)
+	network.room_presence_changed.connect(_on_room_presence_changed)
+	network.room_data_received.connect(_on_room_data_received)
+	network.room_closed.connect(_on_room_closed)
+	network.status_changed.connect(_on_network_status_changed)
+
+
+func _create_room() -> void:
+	if AuthManager.is_logged_in():
+		AuthManager.network.create_room()
+
+
+func _setup_join_mode() -> void:
+	if not join_target.is_empty():
+		party_id_input.text = join_target
+		join_target = ""
+		_on_join_pressed()
+		return
+	party_id_input.grab_focus()
+	status_label.text = "输入房间码加入已有房间"
+
+
+func _on_room_joined(_pid: String) -> void:
+	status_label.text = "已进入房间，等待成员加入"
+
+
+func _on_room_presences_received(_new_presences: Array, new_leader_id: String) -> void:
+	leader_id = new_leader_id
+
+
+func _on_room_presence_changed(joins: Array, _leaves: Array) -> void:
+	if not joins.is_empty():
+		AuthManager.network.send_room_ready(is_ready)
+
+
+func _on_room_data_received(op_code: int, sender_id: String, data: String) -> void:
+	if op_code != Config.PARTY_OP_READY or sender_id == AuthManager.network.user_id:
+		return
+	var parsed: Variant = JSON.parse_string(data)
+	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("ready"):
+		return
+	remote_ready_states[sender_id] = parsed["ready"]
+	var username: String = str(parsed.get("username", sender_id))
+	_upsert_member(sender_id, username)
+	_refresh_slots()
+	_update_buttons()
+	status_label.text = username + (" 已准备" if parsed["ready"] else " 未准备")
+
+
+func _upsert_member(user_id: String, username: String) -> void:
+	for i in range(members.size()):
+		if members[i].get("user_id", "") == user_id:
+			members[i]["username"] = username
+			return
+	members.append({"user_id": user_id, "username": username})
+
+
+func _on_room_closed() -> void:
+	status_label.text = "房间已解散"
+	get_tree().change_scene_to_file(LOBBY_SCENE)
+
+
+func _update_account_label() -> void:
 	if not AuthManager.is_logged_in():
 		account_label.text = "账号：未登录"
 		return
-	var display_name := AuthManager.username
+	var display_name: String = AuthManager.username
 	if display_name.is_empty():
 		display_name = AuthManager.email.get_slice("@", 0)
 	account_label.text = "账号：%s" % display_name
-	party_members[0]["name"] = display_name
 
-func _connect_invite_buttons() -> void:
-	for slot in slots:
-		var invite_button := slot.get_node("Slot%sHBox/InviteButton" % slot.name.trim_prefix("Slot")) as Button
-		invite_button.pressed.connect(_on_invite_pressed)
 
-func _refresh_room() -> void:
-	party_title_label.text = "小队 %d/%d" % [party_members.size(), MAX_PARTY_SIZE]
-	for index in range(slots.size()):
-		var member := {}
-		if index < party_members.size():
-			member = party_members[index]
-		_refresh_slot(slots[index], member)
-	_update_buttons()
+func _refresh_slots() -> void:
+	party_title_label.text = "小队 %d/%d" % [members.size() + 1, Config.PARTY_MAX_SIZE]
+	_refresh_local_slot(slots[0])
+	for index: int in range(1, slots.size()):
+		var remote_index: int = index - 1
+		var member: Dictionary = members[remote_index] if remote_index < members.size() else {}
+		_refresh_remote_slot(slots[index], member)
 
-func _refresh_slot(slot: PanelContainer, member: Dictionary) -> void:
-	var slot_index := slot.name.trim_prefix("Slot")
+
+func _refresh_local_slot(slot: PanelContainer) -> void:
+	var slot_root := slot.get_node("Slot1HBox")
+	var avatar: ColorRect = slot_root.get_node("Avatar")
+	var name_label: Label = slot_root.get_node("NameLabel")
+	var role_label: Label = slot_root.get_node("RoleLabel")
+	var status_label_node: Label = slot_root.get_node("StatusLabel")
+	var invite_button: Button = slot_root.get_node("InviteButton")
+
+	avatar.color = COLOR_AVATAR
+	name_label.text = _local_display_name()
+	name_label.add_theme_color_override("font_color", COLOR_TEXT)
+	role_label.text = "房主" if AuthManager.network.user_id == leader_id else ""
+	role_label.add_theme_color_override("font_color", COLOR_HOST)
+	status_label_node.text = "已准备" if is_ready else "未准备"
+	status_label_node.add_theme_color_override("font_color", COLOR_READY if is_ready else COLOR_NOT_READY)
+	invite_button.visible = false
+
+
+func _local_display_name() -> String:
+	var name: String = AuthManager.username
+	if not name.is_empty():
+		return name
+	return AuthManager.email.get_slice("@", 0)
+
+
+func _refresh_remote_slot(slot: PanelContainer, member: Dictionary) -> void:
+	var slot_index: String = str(slot.name.trim_prefix("Slot"))
 	var slot_root := slot.get_node("Slot%sHBox" % slot_index)
-	var avatar := slot_root.get_node("Avatar") as ColorRect
-	var name_label := slot_root.get_node("NameLabel") as Label
-	var role_label := slot_root.get_node("RoleLabel") as Label
-	var status := slot_root.get_node("StatusLabel") as Label
-	var invite_button := slot_root.get_node("InviteButton") as Button
+	var avatar: ColorRect = slot_root.get_node("Avatar")
+	var name_label: Label = slot_root.get_node("NameLabel")
+	var role_label: Label = slot_root.get_node("RoleLabel")
+	var status_label_node: Label = slot_root.get_node("StatusLabel")
+	var invite_button: Button = slot_root.get_node("InviteButton")
 
 	if member.is_empty():
 		avatar.color = COLOR_EMPTY_AVATAR
 		name_label.text = "空位"
 		name_label.add_theme_color_override("font_color", COLOR_MUTED)
 		role_label.text = ""
-		status.text = ""
+		status_label_node.text = ""
 		invite_button.visible = true
 		return
 
+	var user_id: String = member.get("user_id", "")
+	var member_ready: bool = remote_ready_states.get(user_id, false)
 	avatar.color = COLOR_AVATAR
-	name_label.text = member.get("name", "玩家")
+	name_label.text = member.get("username", "玩家")
 	name_label.add_theme_color_override("font_color", COLOR_TEXT)
-	role_label.text = "房主" if member.get("is_host", false) else ""
-	role_label.add_theme_color_override("font_color", COLOR_HOST)
-	status.text = "已准备" if member.get("is_ready", false) else "未准备"
-	status.add_theme_color_override("font_color", COLOR_READY if member.get("is_ready", false) else COLOR_NOT_READY)
+	role_label.text = ""
+	status_label_node.text = "已准备" if member_ready else "未准备"
+	status_label_node.add_theme_color_override("font_color", COLOR_READY if member_ready else COLOR_NOT_READY)
 	invite_button.visible = false
 
+
 func _update_buttons() -> void:
-	var local_ready := false
-	if not party_members.is_empty():
-		local_ready = party_members[0].get("is_ready", false)
-	ready_button.text = "取消准备" if local_ready else "准备"
-	start_match_button.disabled = not local_ready
+	ready_button.text = "取消准备" if is_ready else "准备"
+	start_match_button.disabled = not _can_start_match()
+
+
+func _can_start_match() -> bool:
+	if room_state != State.LOBBY:
+		return false
+	if AuthManager.network.user_id != leader_id:
+		return false
+	if not is_ready:
+		return false
+	for member: Dictionary in members:
+		if not remote_ready_states.get(member.get("user_id", ""), false):
+			return false
+	return true
+
+
+func _enter_state(new_state: State) -> void:
+	room_state = new_state
+
 
 func _on_ready_pressed() -> void:
-	if party_members.is_empty():
-		return
-	party_members[0]["is_ready"] = not party_members[0].get("is_ready", false)
-	status_label.text = "已准备，等待开始匹配" if party_members[0]["is_ready"] else "已取消准备"
-	_refresh_room()
+	is_ready = not is_ready
+	AuthManager.network.send_room_ready(is_ready)
+	if not is_ready and room_state == State.MATCHMAKING:
+		_cancel_matchmaking()
+	status_label.text = "已准备，等待开始匹配" if is_ready else "已取消准备"
+	_refresh_slots()
+	_update_buttons()
+
 
 func _on_start_match_pressed() -> void:
 	start_match_button.disabled = true
-	status_label.text = "正在开始匹配..."
-	AuthManager.network.start_matchmaking()
+	_enter_state(State.MATCHMAKING)
+	status_label.text = "正在匹配..."
+	AuthManager.network.start_room_matchmaking()
+
+
+func _cancel_matchmaking() -> void:
+	_enter_state(State.LOBBY)
+	status_label.text = "匹配已取消"
+	AuthManager.network.cancel_matchmaking()
+
 
 func _on_invite_pressed() -> void:
-	status_label.text = "邀请功能稍后接入"
+	var pid: String = AuthManager.network.party_id
+	if pid.is_empty():
+		status_label.text = "房间尚未创建"
+		return
+	DisplayServer.clipboard_set(pid)
+	status_label.text = "房间码已复制到剪贴板"
+
+
+func _on_join_pressed() -> void:
+	var entered: String = party_id_input.text.strip_edges()
+	if entered.is_empty():
+		status_label.text = "请输入房间码"
+		return
+	if not AuthManager.is_logged_in():
+		status_label.text = "请先登录"
+		return
+	join_button.disabled = true
+	status_label.text = "正在加入房间..."
+	members.clear()
+	remote_ready_states.clear()
+	AuthManager.network.join_room(entered)
+	party_id_input.clear()
+	join_button.disabled = false
+
 
 func _on_back_pressed() -> void:
-	get_tree().change_scene_to_file(START_MENU_SCENE)
+	AuthManager.network.leave_room()
+	get_tree().change_scene_to_file(LOBBY_SCENE)
+
 
 func _on_connected_to_match(_match_id: String, _user_id: String) -> void:
+	_enter_state(State.LOBBY)
 	get_tree().change_scene_to_file(CHARACTER_SELECT_SCENE)
+
 
 func _on_network_status_changed(message: String) -> void:
 	status_label.text = message
-	if message.begins_with("Matchmaker failed") or message.begins_with("Join matched failed"):
+	if message.begins_with("Party matchmaker failed"):
+		_enter_state(State.LOBBY)
 		start_match_button.disabled = false

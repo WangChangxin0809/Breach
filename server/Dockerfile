@@ -2,6 +2,7 @@ FROM registry.heroiclabs.com/heroiclabs/nakama-pluginbuilder:3.22.0 AS builder
 
 ENV GO111MODULE=on
 ENV CGO_ENABLED=1
+ENV GOPROXY=https://goproxy.cn,direct
 
 WORKDIR /server
 COPY . .

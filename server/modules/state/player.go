@@ -21,6 +21,7 @@ type Player struct {
 	DisplayName     string
 	CharacterID     string
 	CharacterLocked bool
+	Ready           bool
 	Faction         Faction
 	Position        Vec2
 	LastValid       Vec2
