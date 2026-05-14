@@ -17,7 +17,7 @@ var characters: Array[Dictionary] = [
 		"role": "近距离突破",
 		"skill": "大快朵颐",
 		"ultimate": "野性觉醒",
-		"color": Color(0.82, 0.38, 0.14),
+		"portrait": preload("res://assets/spiritframes/01.png"),
 	},
 	{
 		"id": "isaac",
@@ -25,7 +25,7 @@ var characters: Array[Dictionary] = [
 		"role": "视野与情报",
 		"skill": "精密探测",
 		"ultimate": "全域封锁",
-		"color": Color(0.28, 0.72, 0.82),
+		"portrait": preload("res://assets/spiritframes/issac.png"),
 	},
 	{
 		"id": "morgan",
@@ -33,7 +33,7 @@ var characters: Array[Dictionary] = [
 		"role": "狡诈与重生",
 		"skill": "鬼影迷踪",
 		"ultimate": "唤灵戏法",
-		"color": Color(0.948, 0.586, 0.944, 1.0),
+		"portrait": preload("res://assets/spiritframes/mogan.png"),
 	},
 ]
 
@@ -44,7 +44,7 @@ var characters: Array[Dictionary] = [
 	$RootMargin/MainVBox/ContentHBox/CardGrid/ScoutCard,
 	$RootMargin/MainVBox/ContentHBox/CardGrid/SupportCard,
 ]
-@onready var portrait_block: ColorRect = $RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox/PortraitBlock
+@onready var portrait_block: TextureRect = $RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox/PortraitBlock
 @onready var name_label: Label = $RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox/NameLabel
 @onready var role_label: Label = $RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox/RoleLabel
 @onready var skill_label: Label = $RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox/SkillLabel
@@ -79,7 +79,7 @@ func _on_card_pressed(index: int) -> void:
 func _select_character(index: int) -> void:
 	selected_index = index
 	var character := characters[selected_index]
-	portrait_block.color = character["color"]
+	portrait_block.texture = character["portrait"]
 	name_label.text = character["name"]
 	role_label.text = character["role"]
 	skill_label.text = "技能：%s" % character["skill"]
