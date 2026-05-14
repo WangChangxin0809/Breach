@@ -54,6 +54,12 @@ func start_matchmaking() -> void:
 	status_changed.emit("Queued for %d-%d players" % [Config.MATCHMAKER_MIN_PLAYERS, Config.MATCHMAKER_MAX_PLAYERS])
 	matchmaker_ticket_received.emit(matchmaker_ticket)
 
+func send_idle(client_tick: int, position: Vector2, facing: Vector2) -> void:
+	if socket == null or match_id.is_empty():
+		return
+	var payload := ProtobufCodec.encode_move_command(client_tick, position, facing)
+	socket.send_match_state_raw_async(match_id, Config.OP_MOVE, payload)
+
 func send_move(client_tick: int, position: Vector2, direction: Vector2) -> void:
 	if socket == null or match_id.is_empty():
 		return
