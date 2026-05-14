@@ -24,6 +24,36 @@ func (m *MoveCommand) Reset()         { *m = MoveCommand{} }
 func (m *MoveCommand) String() string { return proto.CompactTextString(m) }
 func (*MoveCommand) ProtoMessage()    {}
 
+type CharacterSelect struct {
+	Version     uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	CharacterId string `protobuf:"bytes,2,opt,name=character_id,json=characterId,proto3" json:"character_id,omitempty"`
+}
+
+func (m *CharacterSelect) Reset()         { *m = CharacterSelect{} }
+func (m *CharacterSelect) String() string { return proto.CompactTextString(m) }
+func (*CharacterSelect) ProtoMessage()    {}
+
+type CharacterSelectPlayer struct {
+	UserId      string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	DisplayName string `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	CharacterId string `protobuf:"bytes,3,opt,name=character_id,json=characterId,proto3" json:"character_id,omitempty"`
+	Locked      bool   `protobuf:"varint,4,opt,name=locked,proto3" json:"locked,omitempty"`
+}
+
+func (m *CharacterSelectPlayer) Reset()         { *m = CharacterSelectPlayer{} }
+func (m *CharacterSelectPlayer) String() string { return proto.CompactTextString(m) }
+func (*CharacterSelectPlayer) ProtoMessage()    {}
+
+type CharacterSelectState struct {
+	Version   uint32                   `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	AllLocked bool                     `protobuf:"varint,2,opt,name=all_locked,json=allLocked,proto3" json:"all_locked,omitempty"`
+	Players   []*CharacterSelectPlayer `protobuf:"bytes,3,rep,name=players,proto3" json:"players,omitempty"`
+}
+
+func (m *CharacterSelectState) Reset()         { *m = CharacterSelectState{} }
+func (m *CharacterSelectState) String() string { return proto.CompactTextString(m) }
+func (*CharacterSelectState) ProtoMessage()    {}
+
 type PlayerState struct {
 	UserId      string   `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	DisplayName string   `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`

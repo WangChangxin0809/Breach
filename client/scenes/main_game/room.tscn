@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://rda1y3qwkkg3"]
 
-[ext_resource type="Script" uid="uid://cieru45ykh8wq" path="res://scripts/main_game/room.gd" id="1_room"]
+[ext_resource type="Script" path="res://scripts/main_game/room.gd" id="1_room"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button"]
 bg_color = Color(0.18, 0.2, 0.25, 1)
@@ -125,9 +125,14 @@ horizontal_alignment = 1
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="BackButtonBalance" type="Control" parent="RootMargin/MainVBox/Header" unique_id=812669728]
-custom_minimum_size = Vector2(128, 52)
+[node name="AccountLabel" type="Label" parent="RootMargin/MainVBox/Header"]
+custom_minimum_size = Vector2(220, 52)
 layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 20
+text = "账号：未登录"
+horizontal_alignment = 2
+vertical_alignment = 1
 
 [node name="ContentCenter" type="CenterContainer" parent="RootMargin/MainVBox" unique_id=2034773809]
 layout_mode = 2

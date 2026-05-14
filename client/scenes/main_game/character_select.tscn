@@ -1,0 +1,283 @@
+[gd_scene format=3 uid="uid://br30iredce0qm"]
+
+[ext_resource type="Script" uid="uid://df0gsi2y116jd" path="res://scripts/main_game/character_select.gd" id="1_select"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+content_margin_left = 18.0
+content_margin_top = 16.0
+content_margin_right = 18.0
+content_margin_bottom = 16.0
+bg_color = Color(0.16, 0.18, 0.23, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.48, 0.54, 0.62, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card_hover"]
+content_margin_left = 18.0
+content_margin_top = 16.0
+content_margin_right = 18.0
+content_margin_bottom = 16.0
+bg_color = Color(0.2, 0.23, 0.29, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.28, 0.72, 0.82, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 24.0
+content_margin_top = 22.0
+content_margin_right = 24.0
+content_margin_bottom = 22.0
+bg_color = Color(0.12, 0.14, 0.18, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.28, 0.72, 0.82, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary"]
+bg_color = Color(0.82, 0.38, 0.14, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.76, 0.35, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_hover"]
+bg_color = Color(0.92, 0.46, 0.18, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.86, 0.45, 1)
+
+[node name="CharacterSelect" type="Control" unique_id=185351726]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_select")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1662992769]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.055, 0.065, 0.095, 1)
+
+[node name="RootMargin" type="MarginContainer" parent="." unique_id=53910043]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -22.0
+offset_right = 10.0
+offset_bottom = 113.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1, 0.8800003)
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 36
+
+[node name="MainVBox" type="VBoxContainer" parent="RootMargin" unique_id=2130242909]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Header" type="HBoxContainer" parent="RootMargin/MainVBox" unique_id=1087367051]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="BackButton" type="Button" parent="RootMargin/MainVBox/Header" unique_id=1618742285]
+custom_minimum_size = Vector2(128, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = SubResource("StyleBoxFlat_card")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_card_hover")
+theme_override_styles/hover = SubResource("StyleBoxFlat_card_hover")
+text = "返回"
+
+[node name="HeaderSpacerLeft" type="Control" parent="RootMargin/MainVBox/Header" unique_id=643568344]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TitleLabel" type="Label" parent="RootMargin/MainVBox/Header" unique_id=2040794279]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 54
+text = "选择角色"
+horizontal_alignment = 1
+
+[node name="HeaderSpacerRight" type="Control" parent="RootMargin/MainVBox/Header" unique_id=477263792]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AccountLabel" type="Label" parent="RootMargin/MainVBox/Header" unique_id=508225386]
+custom_minimum_size = Vector2(220, 52)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 20
+text = "账号：未登录"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="ContentHBox" type="HBoxContainer" parent="RootMargin/MainVBox" unique_id=1726331643]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 26
+alignment = 1
+
+[node name="CardGrid" type="GridContainer" parent="RootMargin/MainVBox/ContentHBox" unique_id=850937662]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 16
+columns = 3
+
+[node name="AssaultCard" type="Button" parent="RootMargin/MainVBox/ContentHBox/CardGrid" unique_id=860793083]
+custom_minimum_size = Vector2(190, 260)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+theme_override_styles/normal = SubResource("StyleBoxFlat_card")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_card_hover")
+theme_override_styles/hover = SubResource("StyleBoxFlat_card_hover")
+text = "芙拉"
+
+[node name="ScoutCard" type="Button" parent="RootMargin/MainVBox/ContentHBox/CardGrid" unique_id=678205305]
+custom_minimum_size = Vector2(190, 260)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+theme_override_styles/normal = SubResource("StyleBoxFlat_card")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_card_hover")
+theme_override_styles/hover = SubResource("StyleBoxFlat_card_hover")
+text = "艾萨克"
+
+[node name="SupportCard" type="Button" parent="RootMargin/MainVBox/ContentHBox/CardGrid" unique_id=579321533]
+custom_minimum_size = Vector2(190, 260)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+theme_override_styles/normal = SubResource("StyleBoxFlat_card")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_card_hover")
+theme_override_styles/hover = SubResource("StyleBoxFlat_card_hover")
+text = "莫甘"
+
+[node name="EmptyCard1" type="PanelContainer" parent="RootMargin/MainVBox/ContentHBox/CardGrid" unique_id=1975392857]
+custom_minimum_size = Vector2(190, 260)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Label" type="Label" parent="RootMargin/MainVBox/ContentHBox/CardGrid/EmptyCard1" unique_id=1375206269]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 24
+text = "空位"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EmptyCard2" type="PanelContainer" parent="RootMargin/MainVBox/ContentHBox/CardGrid" unique_id=1875795592]
+custom_minimum_size = Vector2(190, 60)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Label" type="Label" parent="RootMargin/MainVBox/ContentHBox/CardGrid/EmptyCard2" unique_id=779453755]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 24
+text = "空位"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EmptyCard3" type="PanelContainer" parent="RootMargin/MainVBox/ContentHBox/CardGrid" unique_id=1523095213]
+custom_minimum_size = Vector2(190, 260)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Label" type="Label" parent="RootMargin/MainVBox/ContentHBox/CardGrid/EmptyCard3" unique_id=803751981]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 24
+text = "空位"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DetailPanel" type="PanelContainer" parent="RootMargin/MainVBox/ContentHBox" unique_id=433060947]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="DetailVBox" type="VBoxContainer" parent="RootMargin/MainVBox/ContentHBox/DetailPanel" unique_id=1946630737]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="PortraitBlock" type="ColorRect" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=1155031441]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+color = Color(0.82, 0.38, 0.14, 1)
+
+[node name="NameLabel" type="Label" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=719223122]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 36
+text = "芙拉"
+horizontal_alignment = 1
+
+[node name="RoleLabel" type="Label" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=1836474339]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 22
+text = "近距离突破"
+horizontal_alignment = 1
+
+[node name="SkillLabel" type="Label" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=128647745]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 24
+text = "技能：大快朵颐"
+
+[node name="UltimateLabel" type="Label" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=1594695503]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 24
+text = "终极：野性觉醒"
+
+[node name="DetailSpacer" type="Control" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=472083137]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HintLabel" type="Label" parent="RootMargin/MainVBox/ContentHBox/DetailPanel/DetailVBox" unique_id=236835420]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 20
+text = "后续角色可直接填入左侧空位"
+horizontal_alignment = 1
+
+[node name="Footer" type="HBoxContainer" parent="RootMargin/MainVBox" unique_id=958388088]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="StatusLabel" type="Label" parent="RootMargin/MainVBox/Footer" unique_id=1410997487]
+custom_minimum_size = Vector2(260, 58)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.28, 0.72, 0.82, 1)
+theme_override_font_sizes/font_size = 22
+text = "已选择 芙拉"
+vertical_alignment = 1
+
+[node name="ConfirmButton" type="Button" parent="RootMargin/MainVBox/Footer" unique_id=1156725914]
+custom_minimum_size = Vector2(180, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+theme_override_styles/normal = SubResource("StyleBoxFlat_primary")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_primary_hover")
+theme_override_styles/hover = SubResource("StyleBoxFlat_primary_hover")
+text = "确认选择"

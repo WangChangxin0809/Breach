@@ -13,6 +13,12 @@ static func encode_move_command(client_tick: int, position: Vector2, direction: 
 	_write_message_field(out, 4, encode_vector2(direction))
 	return out
 
+static func encode_character_select(character_id: String) -> PackedByteArray:
+	var out := PackedByteArray()
+	_write_varint_field(out, 1, Config.PROTOCOL_VERSION)
+	_write_string_field(out, 2, character_id)
+	return out
+
 static func encode_vector2(value: Vector2) -> PackedByteArray:
 	var out := PackedByteArray()
 	_write_fixed32_field(out, 1, value.x)
@@ -43,6 +49,53 @@ static func decode_game_state(bytes: PackedByteArray) -> Dictionary:
 				result["round_time_remaining"] = _read_fixed32_float(bytes, cursor)
 			5:
 				result["players"].append(decode_player_state(_read_length_delimited(bytes, cursor)))
+			_:
+				_skip_field(bytes, cursor, wire)
+	return result
+
+static func decode_character_select_state(bytes: PackedByteArray) -> Dictionary:
+	var cursor := [0]
+	var result := {
+		"version": 0,
+		"all_locked": false,
+		"players": [],
+	}
+	while cursor[0] < bytes.size():
+		var tag := _read_varint(bytes, cursor)
+		var field := tag >> 3
+		var wire := tag & 7
+		match field:
+			1:
+				result["version"] = _read_varint(bytes, cursor)
+			2:
+				result["all_locked"] = _read_varint(bytes, cursor) != 0
+			3:
+				result["players"].append(decode_character_select_player(_read_length_delimited(bytes, cursor)))
+			_:
+				_skip_field(bytes, cursor, wire)
+	return result
+
+static func decode_character_select_player(bytes: PackedByteArray) -> Dictionary:
+	var cursor := [0]
+	var result := {
+		"user_id": "",
+		"display_name": "",
+		"character_id": "",
+		"locked": false,
+	}
+	while cursor[0] < bytes.size():
+		var tag := _read_varint(bytes, cursor)
+		var field := tag >> 3
+		var wire := tag & 7
+		match field:
+			1:
+				result["user_id"] = _read_length_delimited(bytes, cursor).get_string_from_utf8()
+			2:
+				result["display_name"] = _read_length_delimited(bytes, cursor).get_string_from_utf8()
+			3:
+				result["character_id"] = _read_length_delimited(bytes, cursor).get_string_from_utf8()
+			4:
+				result["locked"] = _read_varint(bytes, cursor) != 0
 			_:
 				_skip_field(bytes, cursor, wire)
 	return result
@@ -108,6 +161,12 @@ static func _write_message_field(out: PackedByteArray, field: int, value: Packed
 	_write_varint(out, (field << 3) | WIRE_LENGTH)
 	_write_varint(out, value.size())
 	out.append_array(value)
+
+static func _write_string_field(out: PackedByteArray, field: int, value: String) -> void:
+	_write_varint(out, (field << 3) | WIRE_LENGTH)
+	var bytes := value.to_utf8_buffer()
+	_write_varint(out, bytes.size())
+	out.append_array(bytes)
 
 static func _write_varint(out: PackedByteArray, value: int) -> void:
 	var current := value

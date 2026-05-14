@@ -1,6 +1,7 @@
 extends Control
 
 const START_MENU_SCENE := "res://scenes/main_game/start_menu.tscn"
+const CHARACTER_SELECT_SCENE := "res://scenes/main_game/character_select.tscn"
 const MAX_PARTY_SIZE := 3
 
 const COLOR_TEXT := Color(0.93, 0.94, 0.88)
@@ -20,6 +21,7 @@ var party_members: Array[Dictionary] = [
 ]
 
 @onready var back_button: Button = $RootMargin/MainVBox/Header/BackButton
+@onready var account_label: Label = $RootMargin/MainVBox/Header/AccountLabel
 @onready var party_title_label: Label = $RootMargin/MainVBox/ContentCenter/ContentVBox/PartyPanel/PartyVBox/PartyTitleLabel
 @onready var status_label: Label = $RootMargin/MainVBox/ContentCenter/ContentVBox/StatusLabel
 @onready var ready_button: Button = $RootMargin/MainVBox/ContentCenter/ContentVBox/FooterButtons/ReadyButton
@@ -34,12 +36,25 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	ready_button.pressed.connect(_on_ready_pressed)
 	start_match_button.pressed.connect(_on_start_match_pressed)
+	AuthManager.network.connected_to_match.connect(_on_connected_to_match)
+	AuthManager.network.status_changed.connect(_on_network_status_changed)
 	_connect_invite_buttons()
+	_apply_logged_in_player()
 	_refresh_room()
 
 func set_party_members(members: Array[Dictionary]) -> void:
 	party_members = members.slice(0, MAX_PARTY_SIZE)
 	_refresh_room()
+
+func _apply_logged_in_player() -> void:
+	if not AuthManager.is_logged_in():
+		account_label.text = "账号：未登录"
+		return
+	var display_name := AuthManager.username
+	if display_name.is_empty():
+		display_name = AuthManager.email.get_slice("@", 0)
+	account_label.text = "账号：%s" % display_name
+	party_members[0]["name"] = display_name
 
 func _connect_invite_buttons() -> void:
 	for slot in slots:
@@ -97,10 +112,20 @@ func _on_ready_pressed() -> void:
 	_refresh_room()
 
 func _on_start_match_pressed() -> void:
+	start_match_button.disabled = true
 	status_label.text = "正在开始匹配..."
+	AuthManager.network.start_matchmaking()
 
 func _on_invite_pressed() -> void:
 	status_label.text = "邀请功能稍后接入"
 
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file(START_MENU_SCENE)
+
+func _on_connected_to_match(_match_id: String, _user_id: String) -> void:
+	get_tree().change_scene_to_file(CHARACTER_SELECT_SCENE)
+
+func _on_network_status_changed(message: String) -> void:
+	status_label.text = message
+	if message.begins_with("Matchmaker failed") or message.begins_with("Join matched failed"):
+		start_match_button.disabled = false

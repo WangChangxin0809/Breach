@@ -31,3 +31,35 @@ func TestMoveCommandRoundTrip(t *testing.T) {
 		t.Fatalf("decoded position mismatch: %#v", decoded.Position)
 	}
 }
+
+func TestCharacterSelectStateRoundTrip(t *testing.T) {
+	original := &CharacterSelectState{
+		Version:   PROTOCOL_VERSION,
+		AllLocked: true,
+		Players: []*CharacterSelectPlayer{
+			{
+				UserId:      "user-a",
+				DisplayName: "A",
+				CharacterId: "fura",
+				Locked:      true,
+			},
+		},
+	}
+
+	data, err := proto.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal character select state: %v", err)
+	}
+
+	decoded := &CharacterSelectState{}
+	if err := proto.Unmarshal(data, decoded); err != nil {
+		t.Fatalf("unmarshal character select state: %v", err)
+	}
+
+	if !decoded.AllLocked || len(decoded.Players) != 1 {
+		t.Fatalf("decoded selection state mismatch: %#v", decoded)
+	}
+	if decoded.Players[0].CharacterId != "fura" || !decoded.Players[0].Locked {
+		t.Fatalf("decoded player selection mismatch: %#v", decoded.Players[0])
+	}
+}

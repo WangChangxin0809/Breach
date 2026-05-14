@@ -6,6 +6,7 @@ signal authoritative_state_received(state: Dictionary)
 signal status_changed(message: String)
 signal authenticated(user_id: String, username: String)
 signal matchmaker_ticket_received(ticket: String)
+signal character_select_state_received(state: Dictionary)
 
 var client: NakamaClient
 var socket: NakamaSocket
@@ -59,6 +60,13 @@ func send_move(client_tick: int, position: Vector2, direction: Vector2) -> void:
 	var payload := ProtobufCodec.encode_move_command(client_tick, position, direction)
 	socket.send_match_state_raw_async(match_id, Config.OP_MOVE, payload)
 
+func send_character_select(character_id: String) -> void:
+	if socket == null or match_id.is_empty():
+		status_changed.emit("Cannot lock character before joining match")
+		return
+	var payload := ProtobufCodec.encode_character_select(character_id)
+	socket.send_match_state_raw_async(match_id, Config.OP_CHARACTER_SELECT, payload)
+
 func _connect_socket() -> void:
 	status_changed.emit("Connecting socket")
 	socket = Nakama.create_socket_from(client)
@@ -103,9 +111,11 @@ func _join_authoritative_match() -> void:
 	connected_to_match.emit(match_id, user_id)
 
 func _on_match_state(match_state) -> void:
-	if match_state.op_code != Config.OP_GAME_STATE:
-		return
-	authoritative_state_received.emit(ProtobufCodec.decode_game_state(match_state.binary_data))
+	match match_state.op_code:
+		Config.OP_GAME_STATE:
+			authoritative_state_received.emit(ProtobufCodec.decode_game_state(match_state.binary_data))
+		Config.OP_CHARACTER_SELECT_STATE:
+			character_select_state_received.emit(ProtobufCodec.decode_character_select_state(match_state.binary_data))
 
 func _on_socket_closed() -> void:
 	if reconnecting or session == null:

@@ -16,6 +16,24 @@ message MoveCommand {
   Vector2 direction = 4;
 }
 
+message CharacterSelect {
+  uint32 version = 1;
+  string character_id = 2;
+}
+
+message CharacterSelectPlayer {
+  string user_id = 1;
+  string display_name = 2;
+  string character_id = 3;
+  bool locked = 4;
+}
+
+message CharacterSelectState {
+  uint32 version = 1;
+  bool all_locked = 2;
+  repeated CharacterSelectPlayer players = 3;
+}
+
 message PlayerState {
   string user_id = 1;
   string display_name = 2;

@@ -1,7 +1,6 @@
 extends Node2D
 
 const PLAYER_SIZE := Vector2(32.0, 32.0)
-const LOGIN_PANEL_SIZE := Vector2(360.0, 230.0)
 
 var network: NetworkClient
 var players: Dictionary = {}
@@ -14,10 +13,6 @@ var latest_round_time := 0.0
 
 var camera: Camera2D
 var hud: CanvasLayer
-var email_input: LineEdit
-var password_input: LineEdit
-var login_button: Button
-var match_button: Button
 var status_label: Label
 var identity_label: Label
 var match_label: Label
@@ -25,8 +20,7 @@ var round_label: Label
 var player_list: Label
 
 func _ready() -> void:
-	network = NetworkClient.new()
-	add_child(network)
+	network = AuthManager.network
 	network.authenticated.connect(_on_authenticated)
 	network.connected_to_match.connect(_on_connected_to_match)
 	network.authoritative_state_received.connect(_on_authoritative_state)
@@ -34,7 +28,11 @@ func _ready() -> void:
 	_setup_input_actions()
 	_setup_world_camera()
 	_setup_ui()
-	_on_status_changed("Enter email, login, then start matchmaking")
+	if AuthManager.is_logged_in():
+		_on_authenticated(AuthManager.user_id, AuthManager.username)
+	if not network.match_id.is_empty():
+		_on_connected_to_match(network.match_id, network.user_id)
+	_on_status_changed("已进入战局")
 
 func _physics_process(delta: float) -> void:
 	var direction := _movement_input_vector()
@@ -69,19 +67,9 @@ func _draw() -> void:
 		draw_rect(Rect2(position + Vector2(-18.0, -28.0), Vector2(36.0, 5.0)), Color(0.1, 0.1, 0.1), true)
 		draw_rect(Rect2(position + Vector2(-18.0, -28.0), Vector2(36.0 * clampf(float(player["health"]) / 100.0, 0.0, 1.0), 5.0)), Color(0.1, 0.85, 0.3), true)
 
-func _on_login_pressed() -> void:
-	login_button.disabled = true
-	network.login(email_input.text.strip_edges(), password_input.text)
-
-func _on_match_pressed() -> void:
-	match_button.disabled = true
-	network.start_matchmaking()
-
 func _on_authenticated(user_id: String, username: String) -> void:
 	my_user_id = user_id
-	identity_label.text = "Email login: %s\nUser: %s\nID: %s" % [email_input.text.strip_edges(), username, user_id]
-	login_button.disabled = false
-	match_button.disabled = false
+	identity_label.text = "账号：%s\nID：%s" % [username, user_id]
 
 func _on_connected_to_match(match_id: String, user_id: String) -> void:
 	my_user_id = user_id
@@ -92,7 +80,6 @@ func _on_connected_to_match(match_id: String, user_id: String) -> void:
 		Config.MATCHMAKER_MIN_PLAYERS,
 		Config.MATCHMAKER_MAX_PLAYERS,
 	]
-	match_button.disabled = true
 
 func _on_authoritative_state(state: Dictionary) -> void:
 	latest_round_state = state["round_state"]
@@ -106,10 +93,6 @@ func _on_authoritative_state(state: Dictionary) -> void:
 
 func _on_status_changed(message: String) -> void:
 	status_label.text = message
-	if message.begins_with("Auth failed") or message.begins_with("Socket failed"):
-		login_button.disabled = false
-	if message.begins_with("Matchmaker failed") or message.begins_with("Join matched failed"):
-		match_button.disabled = false
 
 func _setup_world_camera() -> void:
 	camera = Camera2D.new()
@@ -122,66 +105,28 @@ func _setup_ui() -> void:
 	hud = CanvasLayer.new()
 	add_child(hud)
 
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = LOGIN_PANEL_SIZE
-	panel.position = Vector2(18.0, 18.0)
-	hud.add_child(panel)
-
-	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 8)
-	panel.add_child(layout)
-
-	var title := Label.new()
-	title.text = "Breach-3v3"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(title)
-
-	email_input = LineEdit.new()
-	email_input.placeholder_text = "Email"
-	email_input.text = _default_email()
-	layout.add_child(email_input)
-
-	password_input = LineEdit.new()
-	password_input.placeholder_text = "Password"
-	password_input.secret = true
-	password_input.text = "breach-local-password"
-	layout.add_child(password_input)
-
-	var buttons := HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 8)
-	layout.add_child(buttons)
-
-	login_button = Button.new()
-	login_button.text = "Login"
-	login_button.pressed.connect(_on_login_pressed)
-	buttons.add_child(login_button)
-
-	match_button = Button.new()
-	match_button.text = "Start Matchmaking"
-	match_button.disabled = true
-	match_button.pressed.connect(_on_match_pressed)
-	buttons.add_child(match_button)
-
 	status_label = Label.new()
+	status_label.position = Vector2(18.0, 18.0)
+	status_label.custom_minimum_size = Vector2(520.0, 30.0)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	layout.add_child(status_label)
+	hud.add_child(status_label)
 
 	identity_label = Label.new()
-	identity_label.position = Vector2(18.0, 268.0)
+	identity_label.position = Vector2(18.0, 52.0)
 	identity_label.custom_minimum_size = Vector2(420.0, 72.0)
 	hud.add_child(identity_label)
 
 	match_label = Label.new()
-	match_label.position = Vector2(18.0, 344.0)
+	match_label.position = Vector2(18.0, 128.0)
 	match_label.custom_minimum_size = Vector2(520.0, 62.0)
 	hud.add_child(match_label)
 
 	round_label = Label.new()
-	round_label.position = Vector2(18.0, 410.0)
+	round_label.position = Vector2(18.0, 194.0)
 	hud.add_child(round_label)
 
 	player_list = Label.new()
-	player_list.position = Vector2(18.0, 438.0)
+	player_list.position = Vector2(18.0, 222.0)
 	player_list.custom_minimum_size = Vector2(520.0, 180.0)
 	hud.add_child(player_list)
 
@@ -235,15 +180,6 @@ func _movement_input_vector() -> Vector2:
 
 func _is_connected_to_authoritative_match() -> bool:
 	return not my_user_id.is_empty() and not my_match_id.is_empty()
-
-func _default_email() -> String:
-	var args := OS.get_cmdline_user_args()
-	for index in range(args.size()):
-		if args[index] == "--email" and index + 1 < args.size():
-			return args[index + 1]
-		if args[index].begins_with("--email="):
-			return args[index].trim_prefix("--email=")
-	return "player-%s@breach.local" % str(Time.get_ticks_usec())
 
 func _is_valid_local_position(position: Vector2) -> bool:
 	var radius := Config.PLAYER_RADIUS

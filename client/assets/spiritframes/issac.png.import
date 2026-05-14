@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dc84b7vyyp35d"
-path="res://.godot/imported/fura.png-a68966f2f9ff22aa92bcb606c271f1dd.ctex"
+uid="uid://bgsjmf3t47hcc"
+path="res://.godot/imported/issac.png-4749c5c1c2b45a022289d294c2613c05.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/spiritframes/fura.png"
-dest_files=["res://.godot/imported/fura.png-a68966f2f9ff22aa92bcb606c271f1dd.ctex"]
+source_file="res://assets/spiritframes/issac.png"
+dest_files=["res://.godot/imported/issac.png-4749c5c1c2b45a022289d294c2613c05.ctex"]
 
 [params]
 

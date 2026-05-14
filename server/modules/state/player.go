@@ -15,15 +15,16 @@ type Vec2 struct {
 }
 
 type Player struct {
-	UserID      string
-	SessionID   string
-	Username    string
-	DisplayName string
-	CharacterID string
-	Faction     Faction
-	Position    Vec2
-	LastValid   Vec2
-	Health      int
-	Connected   bool
-	Presence    runtime.Presence
+	UserID          string
+	SessionID       string
+	Username        string
+	DisplayName     string
+	CharacterID     string
+	CharacterLocked bool
+	Faction         Faction
+	Position        Vec2
+	LastValid       Vec2
+	Health          int
+	Connected       bool
+	Presence        runtime.Presence
 }

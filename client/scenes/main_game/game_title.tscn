@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://bco7grj2uicvq"]
+[gd_scene load_steps=5 format=3 uid="uid://bco7grj2uicvq"]
 
 [ext_resource type="Script" uid="uid://ty7j373g74hg" path="res://scripts/main_game/game_title.gd" id="1_title"]
 
@@ -20,6 +20,18 @@ border_color = Color(1, 0.76, 0.35, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
 bg_color = Color(0.2, 0.23, 0.29, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.28, 0.72, 0.82, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_login_panel"]
+content_margin_left = 30.0
+content_margin_top = 26.0
+content_margin_right = 30.0
+content_margin_bottom = 26.0
+bg_color = Color(0.12, 0.14, 0.18, 1)
 border_width_left = 4
 border_width_top = 4
 border_width_right = 4
@@ -103,4 +115,88 @@ custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
 theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="LoginOverlay" type="ColorRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.62)
+
+[node name="LoginCenter" type="CenterContainer" parent="LoginOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LoginPanel" type="PanelContainer" parent="LoginOverlay/LoginCenter"]
+custom_minimum_size = Vector2(460, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_login_panel")
+
+[node name="LoginVBox" type="VBoxContainer" parent="LoginOverlay/LoginCenter/LoginPanel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LoginTitle" type="Label" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.88, 1)
+theme_override_font_sizes/font_size = 36
+text = "登录"
+horizontal_alignment = 1
+
+[node name="LoginHint" type="Label" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.68, 0.72, 1)
+theme_override_font_sizes/font_size = 20
+text = "多人对战需要账号"
+horizontal_alignment = 1
+
+[node name="EmailInput" type="LineEdit" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+placeholder_text = "邮箱"
+
+[node name="PasswordInput" type="LineEdit" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+placeholder_text = "密码"
+secret = true
+
+[node name="LoginButtons" type="HBoxContainer" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="LoginButton" type="Button" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox/LoginButtons"]
+custom_minimum_size = Vector2(130, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+text = "进入"
+
+[node name="CancelButton" type="Button" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox/LoginButtons"]
+custom_minimum_size = Vector2(130, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+text = "返回"
+
+[node name="LoginStatusLabel" type="Label" parent="LoginOverlay/LoginCenter/LoginPanel/LoginVBox"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.28, 0.72, 0.82, 1)
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1

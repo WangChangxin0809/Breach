@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	OpCodeMove      int64 = 1
-	OpCodeGameState int64 = 2
+	OpCodeMove                 int64 = 1
+	OpCodeGameState            int64 = 2
+	OpCodeCharacterSelect      int64 = 3
+	OpCodeCharacterSelectState int64 = 4
 
 	RpcCreateMatch = "create_breach_match"
 )
@@ -145,6 +147,8 @@ func (m *BreachMatch) MatchLoop(ctx context.Context, logger runtime.Logger, db *
 		switch message.GetOpCode() {
 		case OpCodeMove:
 			processMove(logger, dispatcher, current, message, tickInterval)
+		case OpCodeCharacterSelect:
+			processCharacterSelect(logger, dispatcher, current, message)
 		default:
 			logger.Warn("ignored unknown match op_code=%d user_id=%s", message.GetOpCode(), message.GetUserId())
 		}
@@ -157,6 +161,35 @@ func (m *BreachMatch) MatchLoop(ctx context.Context, logger runtime.Logger, db *
 	}
 	logger.Debug("tick=%d players=%d phase=%d", tick, current.ConnectedCount(), current.Phase)
 	return current
+}
+
+func processCharacterSelect(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState, message runtime.MatchData) {
+	player, ok := current.Players[message.GetUserId()]
+	if !ok || !player.Connected {
+		logger.Warn("character select rejected for unknown/disconnected user_id=%s", message.GetUserId())
+		return
+	}
+
+	selection := &gamepb.CharacterSelect{}
+	if err := proto.Unmarshal(message.GetData(), selection); err != nil {
+		logger.Warn("character select rejected invalid protobuf user_id=%s err=%v", message.GetUserId(), err)
+		return
+	}
+	if selection.Version != gamepb.PROTOCOL_VERSION {
+		logger.Warn("character select rejected bad protocol user_id=%s version=%d", message.GetUserId(), selection.Version)
+		return
+	}
+
+	cfg := config.Active()
+	character := cfg.Character(selection.CharacterId)
+	player.CharacterID = character.ID
+	player.Health = character.BaseHealth
+	player.CharacterLocked = true
+	logger.Info("character locked user_id=%s character_id=%s", player.UserID, player.CharacterID)
+
+	if err := broadcastCharacterSelectState(logger, dispatcher, current); err != nil {
+		logger.Error("failed to broadcast character select state: %v", err)
+	}
 }
 
 func (m *BreachMatch) MatchTerminate(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, matchState interface{}, graceSeconds int) interface{} {
@@ -230,6 +263,39 @@ func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatche
 		return fmt.Errorf("marshal game state: %w", err)
 	}
 	return dispatcher.BroadcastMessage(OpCodeGameState, data, current.ActivePresences(), nil, true)
+}
+
+func broadcastCharacterSelectState(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState) error {
+	players := current.SortedPlayers()
+	snapshot := &gamepb.CharacterSelectState{
+		Version: gamepb.PROTOCOL_VERSION,
+		Players: make([]*gamepb.CharacterSelectPlayer, 0, len(players)),
+	}
+	snapshot.AllLocked = false
+	connectedCount := 0
+	for _, player := range players {
+		if !player.Connected {
+			continue
+		}
+		connectedCount++
+		if !player.CharacterLocked {
+			snapshot.AllLocked = false
+		} else if connectedCount == 1 {
+			snapshot.AllLocked = true
+		}
+		snapshot.Players = append(snapshot.Players, &gamepb.CharacterSelectPlayer{
+			UserId:      player.UserID,
+			DisplayName: player.DisplayName,
+			CharacterId: player.CharacterID,
+			Locked:      player.CharacterLocked,
+		})
+	}
+
+	data, err := proto.Marshal(snapshot)
+	if err != nil {
+		return fmt.Errorf("marshal character select state: %w", err)
+	}
+	return dispatcher.BroadcastMessage(OpCodeCharacterSelectState, data, current.ActivePresences(), nil, true)
 }
 
 func assignFaction(current *state.MatchState) state.Faction {
