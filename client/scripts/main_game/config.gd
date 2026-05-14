@@ -20,6 +20,11 @@ const PLAYER_MOVE_SPEED := 220.0
 const PLAYER_RADIUS := 16.0
 const MAP_SIZE := Vector2(1600.0, 960.0)
 
+# 视野系统参数（与服务端 config/characters.go 保持一致）
+const VISION_RADIUS := 180.0       # 圆形视野半径，不看朝向
+const VISION_CONE := 420.0         # 锥形视野最大距离
+const VISION_CONE_HALF_ANGLE := 0.5235987756  # 锥形半角 30°
+
 const FACTION_ATTACKERS := 1
 const FACTION_DEFENDERS := 2
 
