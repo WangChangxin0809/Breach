@@ -24,14 +24,20 @@ type MatchState struct {
 	RoundEnded   time.Time
 	TickRate     int
 	GameMatchID  string
+	PartyFaction map[string]Faction
+	UserParty    map[string]string
+	PartySize    map[string]int
 }
 
 func NewMatchState() *MatchState {
 	cfg := config.Active()
 	return &MatchState{
-		Players:  make(map[string]*Player),
-		Phase:    ROUND_WAITING,
-		TickRate: cfg.Match.TickRate,
+		Players:      make(map[string]*Player),
+		Phase:        ROUND_WAITING,
+		TickRate:     cfg.Match.TickRate,
+		PartyFaction: make(map[string]Faction),
+		UserParty:    make(map[string]string),
+		PartySize:    make(map[string]int),
 	}
 }
 
@@ -64,4 +70,33 @@ func (s *MatchState) SortedPlayers() []*Player {
 		return players[i].UserID < players[j].UserID
 	})
 	return players
+}
+
+func (s *MatchState) AssignFaction(userID string) Faction {
+	partyID, hasParty := s.UserParty[userID]
+	if hasParty {
+		if faction, assigned := s.PartyFaction[partyID]; assigned {
+			return faction
+		}
+	}
+	attackers := 0
+	defenders := 0
+	for _, player := range s.Players {
+		switch player.Faction {
+		case FACTION_ATTACKERS:
+			attackers++
+		case FACTION_DEFENDERS:
+			defenders++
+		}
+	}
+	var faction Faction
+	if attackers <= defenders {
+		faction = FACTION_ATTACKERS
+	} else {
+		faction = FACTION_DEFENDERS
+	}
+	if hasParty {
+		s.PartyFaction[partyID] = faction
+	}
+	return faction
 }

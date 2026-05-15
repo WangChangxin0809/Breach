@@ -89,6 +89,13 @@ func send_room_ready(is_ready: bool, leader_id: String = "") -> void:
 	socket.send_party_data_async(party_id, Config.PARTY_OP_READY, payload)
 
 
+func send_room_matchmaking(active: bool) -> void:
+	if socket == null or party_id.is_empty():
+		return
+	var payload := JSON.stringify({"matchmaking": active})
+	socket.send_party_data_async(party_id, Config.PARTY_OP_MATCHMAKING, payload)
+
+
 func _display_name() -> String:
 	var name: String = AuthManager.username
 	if not name.is_empty():

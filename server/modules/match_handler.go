@@ -63,12 +63,21 @@ func rpcCreateMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 }
 
 func matchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
-	matchID, err := nk.MatchCreate(ctx, config.MATCH_MODULE_NAME, map[string]interface{}{})
+	partyGroups := make(map[string][]string)
+	for _, entry := range entries {
+		partyID := entry.GetPartyId()
+		userID := entry.GetPresence().GetUserId()
+		partyGroups[partyID] = append(partyGroups[partyID], userID)
+	}
+	params := map[string]interface{}{
+		"party_groups": partyGroups,
+	}
+	matchID, err := nk.MatchCreate(ctx, config.MATCH_MODULE_NAME, params)
 	if err != nil {
 		logger.Error("failed to create authoritative match for matchmaker entries=%d err=%v", len(entries), err)
 		return "", err
 	}
-	logger.Info("matchmaker created authoritative match id=%s entries=%d", matchID, len(entries))
+	logger.Info("matchmaker created authoritative match id=%s entries=%d parties=%d", matchID, len(entries), len(partyGroups))
 	return matchID, nil
 }
 
@@ -78,8 +87,27 @@ func newMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime
 
 func (m *BreachMatch) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, params map[string]interface{}) (interface{}, int, string) {
 	cfg := config.Active()
-	logger.Info("breach match initialized config_version=%d tick_rate=%d", cfg.Version, cfg.Match.TickRate)
-	return state.NewMatchState(), cfg.Match.TickRate, "mode=bomb_defusal"
+	matchState := state.NewMatchState()
+	if raw, ok := params["party_groups"]; ok {
+		if groups, ok := raw.(map[string]interface{}); ok {
+			for partyID, usersRaw := range groups {
+				if users, ok := usersRaw.([]interface{}); ok {
+					userIDs := make([]string, 0, len(users))
+					for _, u := range users {
+						if uid, ok := u.(string); ok {
+							userIDs = append(userIDs, uid)
+							matchState.UserParty[uid] = partyID
+						}
+					}
+					matchState.PartySize[partyID] = len(userIDs)
+				}
+			}
+			logger.Info("breach match initialized config_version=%d tick_rate=%d parties=%d", cfg.Version, cfg.Match.TickRate, len(matchState.PartySize))
+		}
+	} else {
+		logger.Info("breach match initialized config_version=%d tick_rate=%d", cfg.Version, cfg.Match.TickRate)
+	}
+	return matchState, cfg.Match.TickRate, "mode=bomb_defusal"
 }
 
 func (m *BreachMatch) MatchJoinAttempt(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, matchState interface{}, presence runtime.Presence, metadata map[string]string) (interface{}, bool, string) {
@@ -102,7 +130,7 @@ func (m *BreachMatch) MatchJoin(ctx context.Context, logger runtime.Logger, db *
 	for _, presence := range presences {
 		player, exists := current.Players[presence.GetUserId()]
 		if !exists {
-			faction := assignFaction(current)
+			faction := current.AssignFaction(presence.GetUserId())
 			spawn := spawnPoint(faction, len(current.Players))
 			player = &state.Player{
 				UserID:      presence.GetUserId(),
@@ -305,22 +333,6 @@ func broadcastCharacterSelectState(logger runtime.Logger, dispatcher runtime.Mat
 		return fmt.Errorf("marshal character select state: %w", err)
 	}
 	return dispatcher.BroadcastMessage(OpCodeCharacterSelectState, data, current.ActivePresences(), nil, true)
-}
-
-func assignFaction(current *state.MatchState) state.Faction {
-	attackers := 0
-	defenders := 0
-	for _, player := range current.Players {
-		if player.Faction == state.FACTION_ATTACKERS {
-			attackers++
-		} else {
-			defenders++
-		}
-	}
-	if attackers <= defenders {
-		return state.FACTION_ATTACKERS
-	}
-	return state.FACTION_DEFENDERS
 }
 
 func spawnPoint(faction state.Faction, index int) state.Vec2 {

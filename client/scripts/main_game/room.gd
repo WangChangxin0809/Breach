@@ -103,6 +103,20 @@ func _on_room_presence_changed(joins: Array, _leaves: Array) -> void:
 
 
 func _on_room_data_received(op_code: int, sender_id: String, data: String) -> void:
+	if op_code == Config.PARTY_OP_MATCHMAKING:
+		if sender_id == AuthManager.network.user_id:
+			return
+		var parsed: Variant = JSON.parse_string(data)
+		if typeof(parsed) != TYPE_DICTIONARY:
+			return
+		var active: bool = parsed.get("matchmaking", false)
+		if active:
+			_enter_state(State.MATCHMAKING)
+			status_label.text = "正在匹配..."
+		else:
+			_enter_state(State.LOBBY)
+			status_label.text = "匹配已取消"
+		return
 	if op_code != Config.PARTY_OP_READY or sender_id == AuthManager.network.user_id:
 		return
 	var parsed: Variant = JSON.parse_string(data)
@@ -121,6 +135,7 @@ func _on_room_data_received(op_code: int, sender_id: String, data: String) -> vo
 		_enter_state(State.LOBBY)
 		status_label.text = username + " 取消了准备，匹配退出"
 		AuthManager.network.cancel_matchmaking()
+		AuthManager.network.send_room_matchmaking(false)
 	_refresh_slots()
 	_update_buttons()
 
@@ -261,6 +276,7 @@ func _on_start_match_pressed() -> void:
 	start_match_button.disabled = true
 	_enter_state(State.MATCHMAKING)
 	status_label.text = "正在匹配..."
+	AuthManager.network.send_room_matchmaking(true)
 	AuthManager.network.start_room_matchmaking()
 
 
@@ -268,6 +284,7 @@ func _cancel_matchmaking() -> void:
 	push_warning("[LOG] cancel_matchmaking room_state=%d" % room_state)
 	_enter_state(State.LOBBY)
 	status_label.text = "匹配已取消"
+	AuthManager.network.send_room_matchmaking(false)
 	AuthManager.network.cancel_matchmaking()
 	_update_buttons()
 
@@ -291,3 +308,4 @@ func _on_network_status_changed(message: String) -> void:
 	if message.begins_with("Party matchmaker failed"):
 		_enter_state(State.LOBBY)
 		start_match_button.disabled = false
+		AuthManager.network.send_room_matchmaking(false)
