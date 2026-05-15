@@ -25,13 +25,12 @@ var leader_id: String = ""
 var room_state: State = State.LOBBY
 
 @onready var back_button: Button = $RootMargin/MainVBox/Header/BackButton
-@onready var account_label: Label = $RootMargin/MainVBox/Header/AccountLabel
+@onready var room_id_label: Label = $RootMargin/MainVBox/Header/RoomIdContainer/RoomIdLabel
+@onready var copy_room_button: Button = $RootMargin/MainVBox/Header/RoomIdContainer/CopyRoomButton
 @onready var party_title_label: Label = $RootMargin/MainVBox/ContentCenter/ContentVBox/PartyPanel/PartyVBox/PartyTitleLabel
 @onready var status_label: Label = $RootMargin/MainVBox/ContentCenter/ContentVBox/StatusLabel
 @onready var ready_button: Button = $RootMargin/MainVBox/ContentCenter/ContentVBox/FooterButtons/ReadyButton
 @onready var start_match_button: Button = $RootMargin/MainVBox/ContentCenter/ContentVBox/FooterButtons/StartMatchButton
-@onready var party_id_input: LineEdit = $RootMargin/MainVBox/Header/JoinBar/PartyIdInput
-@onready var join_button: Button = $RootMargin/MainVBox/Header/JoinBar/JoinButton
 @onready var slots: Array[PanelContainer] = [
 	$RootMargin/MainVBox/ContentCenter/ContentVBox/PartyPanel/PartyVBox/Slot1,
 	$RootMargin/MainVBox/ContentCenter/ContentVBox/PartyPanel/PartyVBox/Slot2,
@@ -43,14 +42,14 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	ready_button.pressed.connect(_on_ready_pressed)
 	start_match_button.pressed.connect(_on_start_match_pressed)
-	join_button.pressed.connect(_on_join_pressed)
+	copy_room_button.pressed.connect(_on_copy_room_pressed)
 	_connect_invite_buttons()
-	_update_account_label()
 	_connect_network_signals()
 	if mode == Mode.CREATE:
 		_create_room()
 	else:
 		_setup_join_mode()
+	_update_buttons()
 
 
 func _connect_invite_buttons() -> void:
@@ -78,25 +77,29 @@ func _create_room() -> void:
 
 func _setup_join_mode() -> void:
 	if not join_target.is_empty():
-		party_id_input.text = join_target
+		var code := join_target
 		join_target = ""
-		_on_join_pressed()
+		status_label.text = "正在加入房间..."
+		members.clear()
+		remote_ready_states.clear()
+		AuthManager.network.join_room(code)
 		return
-	party_id_input.grab_focus()
-	status_label.text = "输入房间码加入已有房间"
+	status_label.text = "加入模式：缺少房间码"
 
 
-func _on_room_joined(_pid: String) -> void:
+func _on_room_joined(pid: String) -> void:
+	room_id_label.text = "房间号：%s" % pid
 	status_label.text = "已进入房间，等待成员加入"
 
 
 func _on_room_presences_received(_new_presences: Array, new_leader_id: String) -> void:
+	push_warning("[UI] presences_received leader=%s" % new_leader_id)
 	leader_id = new_leader_id
 
 
 func _on_room_presence_changed(joins: Array, _leaves: Array) -> void:
 	if not joins.is_empty():
-		AuthManager.network.send_room_ready(is_ready)
+		AuthManager.network.send_room_ready(is_ready, leader_id)
 
 
 func _on_room_data_received(op_code: int, sender_id: String, data: String) -> void:
@@ -105,12 +108,21 @@ func _on_room_data_received(op_code: int, sender_id: String, data: String) -> vo
 	var parsed: Variant = JSON.parse_string(data)
 	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("ready"):
 		return
-	remote_ready_states[sender_id] = parsed["ready"]
+	var member_ready: bool = parsed["ready"]
+	remote_ready_states[sender_id] = member_ready
 	var username: String = str(parsed.get("username", sender_id))
 	_upsert_member(sender_id, username)
+	var broadcast_leader: String = str(parsed.get("leader_id", ""))
+	if not broadcast_leader.is_empty() and broadcast_leader != leader_id:
+		push_warning("[UI] leader updated from=%s to=%s by=%s" % [leader_id, broadcast_leader, username])
+		leader_id = broadcast_leader
+	if not member_ready and room_state == State.MATCHMAKING:
+		push_warning("[LOG] remote unready triggers cancel sender=%s" % sender_id)
+		_enter_state(State.LOBBY)
+		status_label.text = username + " 取消了准备，匹配退出"
+		AuthManager.network.cancel_matchmaking()
 	_refresh_slots()
 	_update_buttons()
-	status_label.text = username + (" 已准备" if parsed["ready"] else " 未准备")
 
 
 func _upsert_member(user_id: String, username: String) -> void:
@@ -126,17 +138,16 @@ func _on_room_closed() -> void:
 	get_tree().change_scene_to_file(LOBBY_SCENE)
 
 
-func _update_account_label() -> void:
-	if not AuthManager.is_logged_in():
-		account_label.text = "账号：未登录"
+func _on_copy_room_pressed() -> void:
+	var pid: String = AuthManager.network.party_id
+	if pid.is_empty():
 		return
-	var display_name: String = AuthManager.username
-	if display_name.is_empty():
-		display_name = AuthManager.email.get_slice("@", 0)
-	account_label.text = "账号：%s" % display_name
+	DisplayServer.clipboard_set(pid)
+	status_label.text = "房间号已复制到剪贴板"
 
 
 func _refresh_slots() -> void:
+	push_warning("[UI] _refresh_slots my_id=%s leader=%s members=%d" % [AuthManager.network.user_id, leader_id, members.size()])
 	party_title_label.text = "小队 %d/%d" % [members.size() + 1, Config.PARTY_MAX_SIZE]
 	_refresh_local_slot(slots[0])
 	for index: int in range(1, slots.size()):
@@ -193,7 +204,8 @@ func _refresh_remote_slot(slot: PanelContainer, member: Dictionary) -> void:
 	avatar.color = COLOR_AVATAR
 	name_label.text = member.get("username", "玩家")
 	name_label.add_theme_color_override("font_color", COLOR_TEXT)
-	role_label.text = ""
+	role_label.text = "房主" if user_id == leader_id else ""
+	role_label.add_theme_color_override("font_color", COLOR_HOST)
 	status_label_node.text = "已准备" if member_ready else "未准备"
 	status_label_node.add_theme_color_override("font_color", COLOR_READY if member_ready else COLOR_NOT_READY)
 	invite_button.visible = false
@@ -219,11 +231,22 @@ func _can_start_match() -> bool:
 
 func _enter_state(new_state: State) -> void:
 	room_state = new_state
+	var locked := new_state == State.MATCHMAKING
+	back_button.disabled = locked
+	ready_button.disabled = locked
+	start_match_button.disabled = locked
+	for slot: PanelContainer in slots:
+		var slot_name: String = slot.name.trim_prefix("Slot")
+		var invite: Button = slot.get_node("Slot%sHBox/InviteButton" % slot_name)
+		invite.disabled = locked
+	if not locked:
+		_update_buttons()
 
 
 func _on_ready_pressed() -> void:
 	is_ready = not is_ready
-	AuthManager.network.send_room_ready(is_ready)
+	push_warning("[LOG] ready pressed is_ready=%s room_state=%d" % [str(is_ready), room_state])
+	AuthManager.network.send_room_ready(is_ready, leader_id)
 	if not is_ready and room_state == State.MATCHMAKING:
 		_cancel_matchmaking()
 	status_label.text = "已准备，等待开始匹配" if is_ready else "已取消准备"
@@ -232,6 +255,9 @@ func _on_ready_pressed() -> void:
 
 
 func _on_start_match_pressed() -> void:
+	push_warning("[LOG] start_match pressed room_state=%d" % room_state)
+	if room_state != State.LOBBY:
+		return
 	start_match_button.disabled = true
 	_enter_state(State.MATCHMAKING)
 	status_label.text = "正在匹配..."
@@ -239,35 +265,15 @@ func _on_start_match_pressed() -> void:
 
 
 func _cancel_matchmaking() -> void:
+	push_warning("[LOG] cancel_matchmaking room_state=%d" % room_state)
 	_enter_state(State.LOBBY)
 	status_label.text = "匹配已取消"
 	AuthManager.network.cancel_matchmaking()
+	_update_buttons()
 
 
 func _on_invite_pressed() -> void:
-	var pid: String = AuthManager.network.party_id
-	if pid.is_empty():
-		status_label.text = "房间尚未创建"
-		return
-	DisplayServer.clipboard_set(pid)
-	status_label.text = "房间码已复制到剪贴板"
-
-
-func _on_join_pressed() -> void:
-	var entered: String = party_id_input.text.strip_edges()
-	if entered.is_empty():
-		status_label.text = "请输入房间码"
-		return
-	if not AuthManager.is_logged_in():
-		status_label.text = "请先登录"
-		return
-	join_button.disabled = true
-	status_label.text = "正在加入房间..."
-	members.clear()
-	remote_ready_states.clear()
-	AuthManager.network.join_room(entered)
-	party_id_input.clear()
-	join_button.disabled = false
+	status_label.text = "邀请功能暂未实现"
 
 
 func _on_back_pressed() -> void:

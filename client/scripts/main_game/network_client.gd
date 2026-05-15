@@ -73,16 +73,19 @@ func join_room(room_code: String) -> void:
 
 
 func leave_room() -> void:
+	if not matchmaker_ticket.is_empty():
+		socket.remove_matchmaker_async(matchmaker_ticket)
+		matchmaker_ticket = ""
 	if party_id.is_empty():
 		return
 	await socket.leave_party_async(party_id)
 	party_id = ""
 
 
-func send_room_ready(is_ready: bool) -> void:
+func send_room_ready(is_ready: bool, leader_id: String = "") -> void:
 	if socket == null or party_id.is_empty():
 		return
-	var payload := JSON.stringify({"ready": is_ready, "user_id": user_id, "username": _display_name()})
+	var payload := JSON.stringify({"ready": is_ready, "user_id": user_id, "username": _display_name(), "leader_id": leader_id})
 	socket.send_party_data_async(party_id, Config.PARTY_OP_READY, payload)
 
 
@@ -94,6 +97,7 @@ func _display_name() -> String:
 
 
 func start_room_matchmaking() -> void:
+	push_warning("[LOG] start_room_matchmaking called ticket=%s" % matchmaker_ticket)
 	if socket == null or not socket.is_connected_to_host():
 		status_changed.emit("Login before matchmaking")
 		return
@@ -101,7 +105,8 @@ func start_room_matchmaking() -> void:
 		status_changed.emit("Not in a room")
 		return
 	if not matchmaker_ticket.is_empty():
-		status_changed.emit("Already in matchmaker queue")
+		push_warning("[LOG] start_room_matchmaking SKIP: already has ticket")
+		status_changed.emit("Searching for match as party")
 		return
 	status_changed.emit("Searching for match as party")
 	var ticket = await socket.add_matchmaker_party_async(
@@ -113,16 +118,19 @@ func start_room_matchmaking() -> void:
 		{}
 	)
 	if ticket.is_exception():
+		push_warning("[LOG] PartyMatchmakerAdd FAILED: %s" % str(ticket.get_exception()))
 		status_changed.emit("Party matchmaker failed: %s" % str(ticket.get_exception()))
 		return
 	matchmaker_ticket = ticket.ticket
+	push_warning("[LOG] PartyMatchmakerAdd OK ticket=%s" % matchmaker_ticket)
 	status_changed.emit("Party queued for %d-%d players" % [Config.MATCHMAKER_MIN_PLAYERS, Config.MATCHMAKER_MAX_PLAYERS])
 
 
 func cancel_matchmaking() -> void:
-	if matchmaker_ticket.is_empty():
-		return
-	socket.remove_matchmaker_async(matchmaker_ticket)
+	push_warning("[LOG] cancel_matchmaking called ticket=%s" % matchmaker_ticket)
+	if not matchmaker_ticket.is_empty():
+		push_warning("[LOG] cancel_matchmaking REMOVE ticket=%s" % matchmaker_ticket)
+		socket.remove_matchmaker_async(matchmaker_ticket)
 	matchmaker_ticket = ""
 	status_changed.emit("Matchmaking cancelled")
 
