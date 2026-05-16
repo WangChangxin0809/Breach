@@ -63,11 +63,12 @@ func rpcCreateMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 }
 
 func matchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
-	partyGroups := make(map[string][]string)
+	partyGroups := make(map[string]interface{})
 	for _, entry := range entries {
 		partyID := entry.GetPartyId()
 		userID := entry.GetPresence().GetUserId()
-		partyGroups[partyID] = append(partyGroups[partyID], userID)
+		existing, _ := partyGroups[partyID].([]interface{})
+		partyGroups[partyID] = append(existing, userID)
 	}
 	params := map[string]interface{}{
 		"party_groups": partyGroups,
