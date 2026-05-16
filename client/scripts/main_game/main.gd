@@ -1,9 +1,21 @@
 extends Node2D
 
-const PLAYER_SIZE := Vector2(32.0, 32.0)
+const ART_TEST_SCENE := preload("res://scenes/test/art_test.tscn")
+const LOCAL_PREVIEW_ID := "__local_preview"
+const NETWORK_PLAYERS_ROOT_NAME := "NetworkPlayers"
+const HEALTH_BAR_WIDTH := 44.0
+const HEALTH_BAR_HEIGHT := 5.0
+const HEALTH_BAR_OFFSET := Vector2(-22.0, -58.0)
+const ATTACKER_COLOR := Color(0.45, 0.78, 1.0, 1.0)
+const DEFENDER_COLOR := Color(1.0, 0.42, 0.27, 1.0)
+const ATTACKER_LIGHT_COLOR := Color(0.44, 0.72, 1.0, 1.0)
+const DEFENDER_LIGHT_COLOR := Color(1.0, 0.48, 0.28, 1.0)
 
 var network: NetworkClient
 var players: Dictionary = {}
+var player_visuals: Dictionary = {}
+var previous_player_positions: Dictionary = {}
+var player_visual_directions: Dictionary = {}
 var my_user_id := ""
 var my_match_id := ""
 var local_position := Vector2(120.0, 180.0)
@@ -11,9 +23,17 @@ var client_tick := 0
 var idle_heartbeat := 0
 var latest_round_state := Config.ROUND_WAITING
 var latest_round_time := 0.0
+var last_local_move_direction := Vector2.RIGHT
+var local_authoritative_position_ready := false
 
 var mouse_world_position := Vector2.ZERO
 
+var art_world: Node2D
+var player_template: Node2D
+var network_players_root: Node2D
+var vision_overlay: Node2D
+var vision_cone: Polygon2D
+var vision_radius: Polygon2D
 var camera: Camera2D
 var hud: CanvasLayer
 var status_label: Label
@@ -29,6 +49,8 @@ func _ready() -> void:
 	network.authoritative_state_received.connect(_on_authoritative_state)
 	network.status_changed.connect(_on_status_changed)
 	_setup_input_actions()
+	_setup_art_world()
+	_setup_vision_overlay()
 	_setup_world_camera()
 	_setup_ui()
 	if AuthManager.is_logged_in():
@@ -36,110 +58,140 @@ func _ready() -> void:
 	if not network.match_id.is_empty():
 		_on_connected_to_match(network.match_id, network.user_id)
 	_on_status_changed("已进入战局")
+	_sync_player_visuals()
+	_update_vision_overlay()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		mouse_world_position = get_global_mouse_position()
 
 func _physics_process(delta: float) -> void:
+	mouse_world_position = get_global_mouse_position()
 	var direction := _movement_input_vector()
+	var can_move_locally := _can_update_local_position()
+	var can_send_to_match := _can_send_local_state()
+
 	if direction == Vector2.ZERO:
-		idle_heartbeat += 1
-		if idle_heartbeat >= 5:
+		if can_send_to_match:
+			idle_heartbeat += 1
+			if idle_heartbeat >= 5:
+				idle_heartbeat = 0
+				network.send_idle(client_tick, local_position, _local_facing_vector())
+				client_tick += 1
+		else:
 			idle_heartbeat = 0
-			var facing := Vector2.RIGHT
-			if mouse_world_position != Vector2.ZERO:
-				var to_mouse := (mouse_world_position - local_position)
-				if to_mouse.length_squared() > 1.0:
-					facing = to_mouse.normalized()
-			network.send_idle(client_tick, local_position, facing)
-			client_tick += 1
-		return
-	idle_heartbeat = 0
-	var predicted_position := local_position + direction * Config.PLAYER_MOVE_SPEED * delta
-	if _is_valid_local_position(predicted_position):
-		local_position = predicted_position
-		if _is_connected_to_authoritative_match():
-			network.send_move(client_tick, local_position, direction)
-			client_tick += 1
-		queue_redraw()
-
-func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, Config.MAP_SIZE), Color(0.08, 0.09, 0.1), true)
-	for obstacle in Config.SOLID_OBSTACLES:
-		draw_rect(obstacle, Color(0.27, 0.29, 0.31), true)
-
-	var my_pos := local_position
-	var my_facing := Vector2.RIGHT
-	var my_direction_raw := Vector2.RIGHT
-	if players.has(my_user_id):
-		if players[my_user_id].has("direction"):
-			my_direction_raw = players[my_user_id]["direction"]
-
-	if mouse_world_position != Vector2.ZERO:
-		var to_mouse := (mouse_world_position - my_pos)
-		if to_mouse.length_squared() > 1.0:
-			my_facing = to_mouse.normalized()
+	elif can_move_locally:
+		idle_heartbeat = 0
+		last_local_move_direction = direction.normalized()
+		var predicted_position := local_position + direction * Config.PLAYER_MOVE_SPEED * delta
+		if _is_valid_local_position(predicted_position):
+			local_position = predicted_position
+			if can_send_to_match:
+				network.send_move(client_tick, local_position, direction)
+				client_tick += 1
 	else:
-		my_facing = my_direction_raw.normalized()
-		if my_facing == Vector2.ZERO:
-			my_facing = Vector2.RIGHT
+		idle_heartbeat = 0
 
-	_draw_vision_cone(my_pos, my_facing, Color(1, 1, 1, 0.06))
-
-	if not players.has(my_user_id):
-		draw_rect(Rect2(local_position - PLAYER_SIZE * 0.5, PLAYER_SIZE), Color(0.45, 0.78, 1.0), true)
-	for player_id in players:
-		var player: Dictionary = players[player_id]
-		if not player["connected"]:
-			continue
-		var color := Color(0.2, 0.65, 1.0)
-		if player["faction"] == Config.FACTION_DEFENDERS:
-			color = Color(1.0, 0.42, 0.27)
-		var position: Vector2 = player["position"]
-		if player_id != my_user_id:
-			if not _is_in_my_vision(my_pos, my_facing, position):
-				continue
-		if player_id == my_user_id:
-			position = local_position
-			color = color.lightened(0.25)
-		draw_rect(Rect2(position - PLAYER_SIZE * 0.5, PLAYER_SIZE), color, true)
-		draw_rect(Rect2(position + Vector2(-18.0, -28.0), Vector2(36.0, 5.0)), Color(0.1, 0.1, 0.1), true)
-		draw_rect(Rect2(position + Vector2(-18.0, -28.0), Vector2(36.0 * clampf(float(player["health"]) / 100.0, 0.0, 1.0), 5.0)), Color(0.1, 0.85, 0.3), true)
+	_sync_player_visuals()
+	_update_vision_overlay()
+	_update_camera(delta)
 
 func _on_authenticated(user_id: String, username: String) -> void:
 	my_user_id = user_id
-	identity_label.text = "账号：%s\nID：%s" % [username, user_id]
+	if identity_label:
+		identity_label.text = "账号：%s\nID：%s" % [username, user_id]
+	_sync_player_visuals()
 
 func _on_connected_to_match(match_id: String, user_id: String) -> void:
 	my_user_id = user_id
 	my_match_id = match_id
-	match_label.text = "Match: %s\nMatchmaker: query '%s', %d-%d players" % [
-		match_id,
-		Config.MATCHMAKER_QUERY,
-		Config.MATCHMAKER_MIN_PLAYERS,
-		Config.MATCHMAKER_MAX_PLAYERS,
-	]
+	local_authoritative_position_ready = false
+	idle_heartbeat = 0
+	client_tick = 0
+	if match_label:
+		match_label.text = "Match: %s\nMatchmaker: query '%s', %d-%d players" % [
+			match_id,
+			Config.MATCHMAKER_QUERY,
+			Config.MATCHMAKER_MIN_PLAYERS,
+			Config.MATCHMAKER_MAX_PLAYERS,
+		]
+	_sync_player_visuals()
 
 func _on_authoritative_state(state: Dictionary) -> void:
 	latest_round_state = state["round_state"]
 	latest_round_time = state["round_time_remaining"]
-	for player in state["players"]:
-		players[player["user_id"]] = player
-		if player["user_id"] == my_user_id:
+
+	var active_player_ids := {}
+	for raw_player in state["players"]:
+		var player: Dictionary = raw_player
+		var player_id: String = player["user_id"]
+		active_player_ids[player_id] = true
+		players[player_id] = player
+		if player_id == my_user_id:
 			local_position = player["position"]
+			local_authoritative_position_ready = true
+
+	for player_id in players.keys():
+		if not active_player_ids.has(player_id):
+			players.erase(player_id)
+
 	_update_match_ui()
-	queue_redraw()
+	_sync_player_visuals()
+	_update_vision_overlay()
+	_update_camera(0.0)
 
 func _on_status_changed(message: String) -> void:
-	status_label.text = message
+	if status_label:
+		status_label.text = message
+
+func _setup_art_world() -> void:
+	art_world = get_node_or_null("ArtWorld") as Node2D
+	if art_world == null:
+		art_world = ART_TEST_SCENE.instantiate() as Node2D
+		art_world.name = "ArtWorld"
+		add_child(art_world)
+		move_child(art_world, 0)
+
+	art_world.y_sort_enabled = true
+	player_template = art_world.get_node_or_null("Player") as Node2D
+	if player_template:
+		player_template.visible = false
+		_prepare_player_visual(player_template)
+
+	var sample_player := art_world.get_node_or_null("Player_02")
+	if sample_player:
+		_deactivate_sample_node(sample_player)
+
+	network_players_root = art_world.get_node_or_null(NETWORK_PLAYERS_ROOT_NAME) as Node2D
+	if network_players_root == null:
+		network_players_root = Node2D.new()
+		network_players_root.name = NETWORK_PLAYERS_ROOT_NAME
+		network_players_root.y_sort_enabled = true
+		art_world.add_child(network_players_root)
 
 func _setup_world_camera() -> void:
 	camera = Camera2D.new()
-	camera.position = Config.MAP_SIZE * 0.5
-	camera.zoom = Vector2(0.75, 0.75)
+	camera.position = local_position
+	camera.zoom = Vector2(1.15, 1.15)
 	camera.enabled = true
 	add_child(camera)
+	camera.make_current()
+
+func _setup_vision_overlay() -> void:
+	vision_overlay = Node2D.new()
+	vision_overlay.name = "VisionOverlay"
+	vision_overlay.z_index = 500
+	add_child(vision_overlay)
+
+	vision_cone = Polygon2D.new()
+	vision_cone.name = "Cone"
+	vision_cone.color = Color(1.0, 1.0, 1.0, 0.05)
+	vision_overlay.add_child(vision_cone)
+
+	vision_radius = Polygon2D.new()
+	vision_radius.name = "ShortRange"
+	vision_radius.color = Color(1.0, 1.0, 1.0, 0.03)
+	vision_overlay.add_child(vision_radius)
 
 func _setup_ui() -> void:
 	hud = CanvasLayer.new()
@@ -171,6 +223,8 @@ func _setup_ui() -> void:
 	hud.add_child(player_list)
 
 func _update_match_ui() -> void:
+	if round_label == null or player_list == null:
+		return
 	round_label.text = "Round %s  %.1fs  Players %d" % [_round_name(latest_round_state), latest_round_time, players.size()]
 	var lines: Array[String] = []
 	for player_id in players:
@@ -219,7 +273,280 @@ func _movement_input_vector() -> Vector2:
 	return direction
 
 func _is_connected_to_authoritative_match() -> bool:
-	return not my_user_id.is_empty() and not my_match_id.is_empty()
+	return network != null and not my_user_id.is_empty() and not my_match_id.is_empty()
+
+func _can_update_local_position() -> bool:
+	return not _is_connected_to_authoritative_match() or local_authoritative_position_ready
+
+func _can_send_local_state() -> bool:
+	return _is_connected_to_authoritative_match() and local_authoritative_position_ready
+
+func _sync_player_visuals() -> void:
+	if network_players_root == null or player_template == null:
+		return
+
+	var active_visual_ids := {}
+	for player in _current_render_states():
+		var player_id: String = player["user_id"]
+		if player_id.is_empty():
+			continue
+		active_visual_ids[player_id] = true
+		var visual := player_visuals.get(player_id, null) as Node2D
+		if visual == null or not is_instance_valid(visual):
+			visual = _create_player_visual(player_id)
+		if visual:
+			_apply_player_visual_state(visual, player_id, player)
+
+	for player_id in player_visuals.keys():
+		if active_visual_ids.has(player_id):
+			continue
+		var stale_visual := player_visuals[player_id] as Node2D
+		if is_instance_valid(stale_visual):
+			stale_visual.queue_free()
+		player_visuals.erase(player_id)
+		previous_player_positions.erase(player_id)
+		player_visual_directions.erase(player_id)
+
+func _current_render_states() -> Array:
+	var states: Array = []
+	for player_id in players:
+		states.append(players[player_id])
+
+	var preview_id := my_user_id
+	if preview_id.is_empty():
+		preview_id = LOCAL_PREVIEW_ID
+	if not players.has(preview_id):
+		states.append({
+			"user_id": preview_id,
+			"display_name": "Local",
+			"faction": Config.FACTION_ATTACKERS,
+			"position": local_position,
+			"health": 100,
+			"connected": true,
+		})
+	return states
+
+func _create_player_visual(player_id: String) -> Node2D:
+	var visual := player_template.duplicate() as Node2D
+	visual.name = "PlayerVisual_%s" % str(abs(player_id.hash()))
+	visual.visible = true
+	visual.position = local_position
+	_prepare_player_visual(visual)
+	visual.add_to_group("Player")
+	network_players_root.add_child(visual)
+	player_visuals[player_id] = visual
+	return visual
+
+func _prepare_player_visual(visual: Node2D) -> void:
+	if visual.get_script() != null:
+		visual.set_script(null)
+	visual.remove_from_group("Player")
+	_disable_visual_collisions(visual)
+	_remove_visual_cameras(visual)
+	_ensure_health_bar(visual)
+
+	var weapon_pivot := visual.get_node_or_null("WeaponPivot") as Node2D
+	if weapon_pivot:
+		weapon_pivot.set_meta("base_x_offset", absf(weapon_pivot.position.x))
+
+func _disable_visual_collisions(node: Node) -> void:
+	if node is CollisionObject2D:
+		var collision_object := node as CollisionObject2D
+		collision_object.collision_layer = 0
+		collision_object.collision_mask = 0
+	if node is CollisionShape2D:
+		var collision_shape := node as CollisionShape2D
+		collision_shape.disabled = true
+	if node is CollisionPolygon2D:
+		var collision_polygon := node as CollisionPolygon2D
+		collision_polygon.disabled = true
+	for child in node.get_children():
+		_disable_visual_collisions(child)
+
+func _remove_visual_cameras(visual: Node) -> void:
+	for raw_camera in visual.find_children("*", "Camera2D", true, false):
+		var camera_node := raw_camera as Camera2D
+		if camera_node == null:
+			continue
+		var parent := camera_node.get_parent()
+		if parent:
+			parent.remove_child(camera_node)
+		camera_node.free()
+
+func _deactivate_sample_node(node: Node) -> void:
+	if node is CanvasItem:
+		var canvas_item := node as CanvasItem
+		canvas_item.visible = false
+	node.process_mode = Node.PROCESS_MODE_DISABLED
+	_disable_visual_collisions(node)
+
+func _ensure_health_bar(visual: Node2D) -> void:
+	if visual.get_node_or_null("HealthBar"):
+		return
+	var bar := Node2D.new()
+	bar.name = "HealthBar"
+	bar.position = HEALTH_BAR_OFFSET
+	bar.z_index = 100
+	visual.add_child(bar)
+
+	var background := Line2D.new()
+	background.name = "Background"
+	background.width = HEALTH_BAR_HEIGHT
+	background.default_color = Color(0.05, 0.06, 0.07, 0.82)
+	background.points = PackedVector2Array([Vector2.ZERO, Vector2(HEALTH_BAR_WIDTH, 0.0)])
+	bar.add_child(background)
+
+	var fill := Line2D.new()
+	fill.name = "Fill"
+	fill.width = HEALTH_BAR_HEIGHT
+	fill.default_color = Color(0.1, 0.85, 0.3, 1.0)
+	fill.points = PackedVector2Array([Vector2.ZERO, Vector2(HEALTH_BAR_WIDTH, 0.0)])
+	bar.add_child(fill)
+
+func _apply_player_visual_state(visual: Node2D, player_id: String, player: Dictionary) -> void:
+	var is_local := player_id == my_user_id or player_id == LOCAL_PREVIEW_ID
+	var position: Vector2 = player["position"]
+	if is_local:
+		position = local_position
+
+	visual.position = position
+
+	if not bool(player.get("connected", true)):
+		visual.visible = false
+		return
+
+	if not is_local and not _is_in_my_vision(local_position, _local_facing_vector(), position):
+		visual.visible = false
+		return
+
+	visual.visible = true
+	var previous_position: Vector2 = previous_player_positions.get(player_id, position)
+	var movement_delta := position - previous_position
+	var moving := movement_delta.length_squared() > 0.25
+	previous_player_positions[player_id] = position
+
+	var facing := _visual_facing_direction(player_id, is_local, movement_delta)
+	_apply_visual_facing(visual, facing)
+	_apply_visual_animation(visual, moving)
+	_apply_visual_faction(visual, int(player.get("faction", Config.FACTION_ATTACKERS)), is_local, int(player.get("health", 100)))
+	_apply_visual_health(visual, int(player.get("health", 100)))
+
+func _visual_facing_direction(player_id: String, is_local: bool, movement_delta: Vector2) -> Vector2:
+	if is_local:
+		var facing := _local_facing_vector()
+		player_visual_directions[player_id] = facing
+		return facing
+	if movement_delta.length_squared() > 0.25:
+		var direction := movement_delta.normalized()
+		player_visual_directions[player_id] = direction
+		return direction
+	return player_visual_directions.get(player_id, Vector2.RIGHT)
+
+func _local_facing_vector() -> Vector2:
+	if mouse_world_position != Vector2.ZERO:
+		var to_mouse := mouse_world_position - local_position
+		if to_mouse.length_squared() > 1.0:
+			return to_mouse.normalized()
+	if last_local_move_direction.length_squared() > 0.0:
+		return last_local_move_direction.normalized()
+	return Vector2.RIGHT
+
+func _apply_visual_facing(visual: Node2D, facing: Vector2) -> void:
+	if facing.length_squared() <= 0.001:
+		return
+
+	var sprite := visual.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	var weapon_pivot := visual.get_node_or_null("WeaponPivot") as Node2D
+	var weapon_sprite: Sprite2D
+	if weapon_pivot:
+		weapon_sprite = weapon_pivot.get_node_or_null("WeaponSprite") as Sprite2D
+
+	var faces_left := facing.x < -0.01
+	if sprite:
+		sprite.flip_h = not faces_left
+	if weapon_sprite:
+		weapon_sprite.flip_v = faces_left
+	if weapon_pivot:
+		var pivot_offset := float(weapon_pivot.get_meta("base_x_offset", absf(weapon_pivot.position.x)))
+		weapon_pivot.position.x = -pivot_offset if faces_left else pivot_offset
+		weapon_pivot.rotation = facing.angle()
+
+func _apply_visual_animation(visual: Node2D, moving: bool) -> void:
+	var sprite := visual.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if sprite == null or sprite.sprite_frames == null:
+		return
+
+	var animation := &"Idle"
+	if moving and sprite.sprite_frames.has_animation(&"Run"):
+		animation = &"Run"
+	elif not sprite.sprite_frames.has_animation(animation):
+		return
+
+	if sprite.animation != animation or not sprite.is_playing():
+		sprite.play(animation)
+
+func _apply_visual_faction(visual: Node2D, faction: int, is_local: bool, health: int) -> void:
+	var body_color := _faction_color(faction)
+	if is_local:
+		body_color = body_color.lightened(0.18)
+	if health <= 0:
+		body_color = Color(0.55, 0.55, 0.55, 0.48)
+
+	var sprite := visual.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if sprite:
+		sprite.modulate = body_color
+
+	for raw_light in visual.find_children("*", "PointLight2D", true, false):
+		var light := raw_light as PointLight2D
+		if light:
+			light.color = _faction_light_color(faction)
+
+func _apply_visual_health(visual: Node2D, health: int) -> void:
+	var ratio := clampf(float(health) / 100.0, 0.0, 1.0)
+	var fill := visual.get_node_or_null("HealthBar/Fill") as Line2D
+	if fill:
+		fill.points = PackedVector2Array([Vector2.ZERO, Vector2(HEALTH_BAR_WIDTH * ratio, 0.0)])
+		fill.default_color = Color(0.1, 0.85, 0.3, 1.0) if ratio > 0.3 else Color(0.92, 0.23, 0.18, 1.0)
+
+func _faction_color(faction: int) -> Color:
+	if faction == Config.FACTION_DEFENDERS:
+		return DEFENDER_COLOR
+	return ATTACKER_COLOR
+
+func _faction_light_color(faction: int) -> Color:
+	if faction == Config.FACTION_DEFENDERS:
+		return DEFENDER_LIGHT_COLOR
+	return ATTACKER_LIGHT_COLOR
+
+func _update_camera(delta: float) -> void:
+	if camera == null:
+		return
+	if delta <= 0.0:
+		camera.position = local_position
+		return
+	camera.position = camera.position.lerp(local_position, clampf(delta * 8.0, 0.0, 1.0))
+
+func _update_vision_overlay() -> void:
+	if vision_cone == null or vision_radius == null:
+		return
+
+	var facing := _local_facing_vector()
+	var cone_points := PackedVector2Array()
+	var cone_segments := 16
+	var half_angle := Config.VISION_CONE_HALF_ANGLE
+	var base_angle := atan2(facing.y, facing.x)
+	cone_points.append(local_position)
+	for i in range(cone_segments + 1):
+		var angle := base_angle - half_angle + (2.0 * half_angle * float(i) / float(cone_segments))
+		cone_points.append(local_position + Vector2(cos(angle), sin(angle)) * Config.VISION_CONE)
+	vision_cone.polygon = cone_points
+
+	var radius_points := PackedVector2Array()
+	var radius_segments := 32
+	for i in range(radius_segments):
+		var angle := TAU * float(i) / float(radius_segments)
+		radius_points.append(local_position + Vector2(cos(angle), sin(angle)) * Config.VISION_RADIUS)
+	vision_radius.polygon = radius_points
 
 func _is_valid_local_position(position: Vector2) -> bool:
 	var radius := Config.PLAYER_RADIUS
@@ -315,18 +642,3 @@ func _orient(a: Vector2, b: Vector2, c: Vector2) -> float:
 func _on_segment(a: Vector2, b: Vector2, c: Vector2) -> bool:
 	return minf(a.x, b.x) <= c.x and c.x <= maxf(a.x, b.x) \
 	   and minf(a.y, b.y) <= c.y and c.y <= maxf(a.y, b.y)
-
-func _draw_vision_cone(origin: Vector2, facing: Vector2, color: Color) -> void:
-	var segments := 16
-	var half_angle := Config.VISION_CONE_HALF_ANGLE
-	var cone_len := Config.VISION_CONE
-	var base_angle := atan2(facing.y, facing.x)
-
-	var points := PackedVector2Array()
-	points.append(origin)
-	for i in range(segments + 1):
-		var angle := base_angle - half_angle + (2.0 * half_angle * float(i) / float(segments))
-		points.append(origin + Vector2(cos(angle), sin(angle)) * cone_len)
-	draw_polygon(points, [color])
-
-	draw_circle(origin, Config.VISION_RADIUS, Color(1, 1, 1, 0.03))
