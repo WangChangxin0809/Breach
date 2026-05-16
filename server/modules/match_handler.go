@@ -253,6 +253,7 @@ func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatche
 			UserId:      player.UserID,
 			DisplayName: player.DisplayName,
 			Faction:     int32(player.Faction),
+			CharacterId: player.CharacterID,
 			Position: &gamepb.Vector2{
 				X: float32(player.Position.X),
 				Y: float32(player.Position.Y),

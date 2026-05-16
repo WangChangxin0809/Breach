@@ -42,6 +42,7 @@ message PlayerState {
   int32 health = 5;
   bool connected = 6;
   Vector2 direction = 7;
+  string character_id = 8;
 }
 
 message GameState {

@@ -116,8 +116,14 @@ func set_weapon_light_color(color: Color) -> void:
 func equip_weapon(weapon_scene: PackedScene) -> Node2D:
 	if weapon_scene == null:
 		return null
-	if weapon and is_instance_valid(weapon):
-		weapon.queue_free()
+	var existing_weapon := weapon
+	if existing_weapon == null or not is_instance_valid(existing_weapon):
+		existing_weapon = get_node_or_null(weapon_node_path) as Node2D
+	if existing_weapon and is_instance_valid(existing_weapon):
+		var existing_parent := existing_weapon.get_parent()
+		if existing_parent:
+			existing_parent.remove_child(existing_weapon)
+		existing_weapon.free()
 	weapon = weapon_scene.instantiate() as Node2D
 	if weapon == null:
 		return null

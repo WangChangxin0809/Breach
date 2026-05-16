@@ -1,6 +1,8 @@
 extends Node2D
 
 const ART_TEST_SCENE := preload("res://scenes/test/art_test.tscn")
+const CharacterRegistry = preload("res://scripts/main_game/character_registry.gd")
+const WeaponRegistry = preload("res://scripts/main_game/weapon_registry.gd")
 const LOCAL_PREVIEW_ID := "__local_preview"
 const NETWORK_PLAYERS_ROOT_NAME := "NetworkPlayers"
 const GENERATED_OCCLUDERS_ROOT_NAME := "GeneratedVisionOccluders"
@@ -18,6 +20,7 @@ const CAPSULE_OCCLUDER_HALF_SEGMENTS := 8
 var network: NetworkClient
 var players: Dictionary = {}
 var player_visuals: Dictionary = {}
+var player_visual_character_ids: Dictionary = {}
 var previous_player_positions: Dictionary = {}
 var player_visual_directions: Dictionary = {}
 var player_visual_moving_until_ms: Dictionary = {}
@@ -328,9 +331,19 @@ func _sync_player_visuals() -> void:
 		if player_id.is_empty():
 			continue
 		active_visual_ids[player_id] = true
+		var character_id := _player_character_id(player)
 		var visual := player_visuals.get(player_id, null) as Node2D
+		if visual != null and is_instance_valid(visual) and player_visual_character_ids.get(player_id, "") != character_id:
+			visual.name = "StalePlayerVisual_%s" % str(abs(player_id.hash()))
+			visual.queue_free()
+			player_visuals.erase(player_id)
+			previous_player_positions.erase(player_id)
+			player_visual_directions.erase(player_id)
+			player_visual_moving_until_ms.erase(player_id)
+			player_visual_character_ids.erase(player_id)
+			visual = null
 		if visual == null or not is_instance_valid(visual):
-			visual = _create_player_visual(player_id)
+			visual = _create_player_visual(player_id, player)
 		if visual:
 			_apply_player_visual_state(visual, player_id, player)
 
@@ -341,6 +354,7 @@ func _sync_player_visuals() -> void:
 		if is_instance_valid(stale_visual):
 			stale_visual.queue_free()
 		player_visuals.erase(player_id)
+		player_visual_character_ids.erase(player_id)
 		previous_player_positions.erase(player_id)
 		player_visual_directions.erase(player_id)
 		player_visual_moving_until_ms.erase(player_id)
@@ -357,6 +371,7 @@ func _current_render_states() -> Array:
 		states.append({
 			"user_id": preview_id,
 			"display_name": "Local",
+			"character_id": CharacterRegistry.DEFAULT_CHARACTER_ID,
 			"faction": Config.FACTION_ATTACKERS,
 			"position": local_position,
 			"health": 100,
@@ -364,16 +379,41 @@ func _current_render_states() -> Array:
 		})
 	return states
 
-func _create_player_visual(player_id: String) -> Node2D:
-	var visual := player_template.duplicate() as Node2D
+func _create_player_visual(player_id: String, player: Dictionary) -> Node2D:
+	var character_id := _player_character_id(player)
+	var visual := _instantiate_character_visual(character_id)
 	visual.name = "PlayerVisual_%s" % str(abs(player_id.hash()))
 	visual.visible = true
 	visual.position = local_position
+	_equip_default_weapon(visual, character_id)
 	_prepare_player_visual(visual)
 	visual.add_to_group("Player")
 	network_players_root.add_child(visual)
 	player_visuals[player_id] = visual
+	player_visual_character_ids[player_id] = character_id
 	return visual
+
+func _instantiate_character_visual(character_id: String) -> Node2D:
+	var character_scene := CharacterRegistry.character_scene(character_id)
+	if character_scene:
+		var visual := character_scene.instantiate() as Node2D
+		if visual:
+			return visual
+	return player_template.duplicate() as Node2D
+
+func _equip_default_weapon(visual: Node2D, character_id: String) -> void:
+	if not visual.has_method("equip_weapon"):
+		return
+	var weapon_id := CharacterRegistry.default_weapon_id(character_id)
+	var weapon_scene := WeaponRegistry.weapon_scene(weapon_id)
+	if weapon_scene:
+		visual.call("equip_weapon", weapon_scene)
+
+func _player_character_id(player: Dictionary) -> String:
+	var character_id := str(player.get("character_id", ""))
+	if character_id.is_empty():
+		return CharacterRegistry.DEFAULT_CHARACTER_ID
+	return character_id
 
 func _prepare_player_visual(visual: Node2D) -> void:
 	visual.remove_from_group("Player")

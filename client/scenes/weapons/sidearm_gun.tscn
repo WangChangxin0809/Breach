@@ -5,7 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://csmoowd46cc5f" path="res://assets/other/light.png" id="3_light"]
 
 [node name="SidearmGun" instance=ExtResource("1_weapon_base")]
-weapon_id = "sidearm_gun"
+weapon_id = "default_sidearm"
 
 [node name="WeaponSprite" parent="." index="0"]
 texture = ExtResource("2_gun")

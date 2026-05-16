@@ -2,6 +2,7 @@ extends Control
 
 const GAME_SCENE := "res://scenes/main_game/main.tscn"
 const ROOM_SCENE := "res://scenes/main_game/room.tscn"
+const CharacterRegistry = preload("res://scripts/main_game/character_registry.gd")
 
 const COLOR_TEXT := Color(0.93, 0.94, 0.88)
 const COLOR_MUTED := Color(0.65, 0.68, 0.72)
@@ -10,32 +11,7 @@ const COLOR_PRIMARY := Color(1.0, 0.76, 0.35)
 
 var selected_index := 0
 var locked := false
-var characters: Array[Dictionary] = [
-	{
-		"id": "fura",
-		"name": "芙拉",
-		"role": "近距离突破",
-		"skill": "大快朵颐",
-		"ultimate": "野性觉醒",
-		"portrait": preload("res://assets/spiritframes/01.png"),
-	},
-	{
-		"id": "isaac",
-		"name": "艾萨克",
-		"role": "视野与情报",
-		"skill": "精密探测",
-		"ultimate": "全域封锁",
-		"portrait": preload("res://assets/spiritframes/issac.png"),
-	},
-	{
-		"id": "morgan",
-		"name": "莫甘",
-		"role": "狡诈与重生",
-		"skill": "鬼影迷踪",
-		"ultimate": "唤灵戏法",
-		"portrait": preload("res://assets/spiritframes/mogan.png"),
-	},
-]
+var characters: Array[Dictionary] = []
 
 @onready var back_button: Button = $RootMargin/MainVBox/Header/BackButton
 @onready var account_label: Label = $RootMargin/MainVBox/Header/AccountLabel
@@ -53,6 +29,7 @@ var characters: Array[Dictionary] = [
 @onready var status_label: Label = $RootMargin/MainVBox/Footer/StatusLabel
 
 func _ready() -> void:
+	characters = CharacterRegistry.selectable_characters()
 	back_button.pressed.connect(_on_back_pressed)
 	confirm_button.pressed.connect(_on_confirm_pressed)
 	AuthManager.network.character_select_state_received.connect(_on_character_select_state_received)

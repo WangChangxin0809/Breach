@@ -3,6 +3,8 @@ extends SceneTree
 const MAIN_SCENE := preload("res://scenes/main_game/main.tscn")
 const PLAYER_SCENE := preload("res://scenes/characters/player_character.tscn")
 const WEAPON_SCENE := preload("res://scenes/weapons/sidearm_gun.tscn")
+const CharacterRegistry = preload("res://scripts/main_game/character_registry.gd")
+const WeaponRegistry = preload("res://scripts/main_game/weapon_registry.gd")
 
 var main_scene: Node
 
@@ -13,6 +15,12 @@ func _run() -> void:
 	var standalone_player := PLAYER_SCENE.instantiate() as Node2D
 	root.add_child(standalone_player)
 	await process_frame
+
+	var selectable := CharacterRegistry.selectable_characters()
+	_assert(selectable.size() == 3, "character registry should provide current selectable characters")
+	_assert(CharacterRegistry.character_scene("fura") == PLAYER_SCENE, "character registry should map fura to the current test character scene")
+	_assert(CharacterRegistry.default_weapon_id("fura") == WeaponRegistry.DEFAULT_WEAPON_ID, "character registry should expose default weapon id")
+	_assert(WeaponRegistry.weapon_scene(WeaponRegistry.DEFAULT_WEAPON_ID) == WEAPON_SCENE, "weapon registry should map default sidearm to sidearm scene")
 
 	_assert(standalone_player.has_method("set_facing"), "player scene should inherit CharacterBase facing API")
 	_assert(standalone_player.has_method("set_moving"), "player scene should inherit CharacterBase animation API")

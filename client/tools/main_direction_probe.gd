@@ -66,6 +66,7 @@ func _apply_state(remote_direction: Vector2, remote_position := Vector2(220.0, 1
 	ProtobufCodec._write_message_field(bytes, 5, _encoded_player_state(
 		"local-user",
 		"local",
+		"fura",
 		Config.FACTION_ATTACKERS,
 		Vector2(320.0, 120.0),
 		Vector2.RIGHT
@@ -73,6 +74,7 @@ func _apply_state(remote_direction: Vector2, remote_position := Vector2(220.0, 1
 	ProtobufCodec._write_message_field(bytes, 5, _encoded_player_state(
 		"remote-user",
 		"remote",
+		"isaac",
 		Config.FACTION_DEFENDERS,
 		remote_position,
 		remote_direction
@@ -86,7 +88,7 @@ func _apply_state(remote_direction: Vector2, remote_position := Vector2(220.0, 1
 			return
 	main_scene.call("_on_authoritative_state", state)
 
-func _encoded_player_state(user_id: String, display_name: String, faction: int, position: Vector2, direction: Vector2) -> PackedByteArray:
+func _encoded_player_state(user_id: String, display_name: String, character_id: String, faction: int, position: Vector2, direction: Vector2) -> PackedByteArray:
 	var bytes := PackedByteArray()
 	ProtobufCodec._write_string_field(bytes, 1, user_id)
 	ProtobufCodec._write_string_field(bytes, 2, display_name)
@@ -95,6 +97,7 @@ func _encoded_player_state(user_id: String, display_name: String, faction: int, 
 	ProtobufCodec._write_varint_field(bytes, 5, 100)
 	ProtobufCodec._write_varint_field(bytes, 6, 1)
 	ProtobufCodec._write_message_field(bytes, 7, ProtobufCodec.encode_vector2(direction))
+	ProtobufCodec._write_string_field(bytes, 8, character_id)
 	return bytes
 
 func _remote_visual() -> Node2D:

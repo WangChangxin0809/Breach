@@ -66,3 +66,37 @@ func TestCharacterSelectStateRoundTrip(t *testing.T) {
 		t.Fatalf("decoded player selection mismatch: %#v", decoded.Players[0])
 	}
 }
+
+func TestGameStatePlayerCarriesCharacterID(t *testing.T) {
+	original := &GameState{
+		Version: PROTOCOL_VERSION,
+		Tick:    7,
+		Players: []*PlayerState{
+			{
+				UserId:      "user-a",
+				DisplayName: "A",
+				CharacterId: "fura",
+				Faction:     1,
+				Position:    &Vector2{X: 10, Y: 20},
+				Health:      100,
+				Connected:   true,
+			},
+		},
+	}
+
+	data, err := proto.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal game state: %v", err)
+	}
+
+	decoded := &GameState{}
+	if err := proto.Unmarshal(data, decoded); err != nil {
+		t.Fatalf("unmarshal game state: %v", err)
+	}
+	if len(decoded.Players) != 1 {
+		t.Fatalf("decoded players mismatch: %#v", decoded.Players)
+	}
+	if decoded.Players[0].CharacterId != "fura" {
+		t.Fatalf("decoded character id mismatch: %#v", decoded.Players[0])
+	}
+}
