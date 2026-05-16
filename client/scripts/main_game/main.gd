@@ -32,6 +32,7 @@ var latest_round_state := Config.ROUND_WAITING
 var latest_round_time := 0.0
 var last_local_move_direction := Vector2.RIGHT
 var local_authoritative_position_ready := false
+var local_visual_moving := false
 
 var mouse_world_position := Vector2.ZERO
 
@@ -81,6 +82,7 @@ func _physics_process(delta: float) -> void:
 	var direction := _movement_input_vector()
 	var can_move_locally := _can_update_local_position()
 	var can_send_to_match := _can_send_local_state()
+	var moved_locally := false
 
 	if direction == Vector2.ZERO:
 		if can_send_to_match:
@@ -97,12 +99,14 @@ func _physics_process(delta: float) -> void:
 		var predicted_position := local_position + direction * Config.PLAYER_MOVE_SPEED * delta
 		if _is_valid_local_position(predicted_position):
 			local_position = predicted_position
+			moved_locally = true
 			if can_send_to_match:
 				network.send_move(client_tick, local_position, _local_facing_vector())
 				client_tick += 1
 	else:
 		idle_heartbeat = 0
 
+	local_visual_moving = moved_locally
 	_sync_player_visuals()
 	_update_vision_overlay()
 	_update_camera(delta)
@@ -117,6 +121,7 @@ func _on_connected_to_match(match_id: String, user_id: String) -> void:
 	my_user_id = user_id
 	my_match_id = match_id
 	local_authoritative_position_ready = false
+	local_visual_moving = false
 	idle_heartbeat = 0
 	client_tick = 0
 	if match_label:
@@ -140,8 +145,7 @@ func _on_authoritative_state(state: Dictionary) -> void:
 		players[player_id] = player
 		_cache_authoritative_direction(player_id, player)
 		if player_id == my_user_id:
-			local_position = player["position"]
-			local_authoritative_position_ready = true
+			_reconcile_local_position(player["position"])
 
 	for player_id in players.keys():
 		if not active_player_ids.has(player_id):
@@ -150,7 +154,6 @@ func _on_authoritative_state(state: Dictionary) -> void:
 	_update_match_ui()
 	_sync_player_visuals()
 	_update_vision_overlay()
-	_update_camera(0.0)
 
 func _on_status_changed(message: String) -> void:
 	if status_label:
@@ -297,6 +300,23 @@ func _can_update_local_position() -> bool:
 
 func _can_send_local_state() -> bool:
 	return _is_connected_to_authoritative_match() and local_authoritative_position_ready
+
+func _reconcile_local_position(authoritative_position: Vector2) -> void:
+	if not local_authoritative_position_ready:
+		local_position = authoritative_position
+		local_authoritative_position_ready = true
+		return
+
+	var correction_delta := authoritative_position - local_position
+	var correction_distance := correction_delta.length()
+	if correction_distance <= Config.LOCAL_RECONCILE_DEADZONE and _is_valid_local_position(local_position):
+		return
+
+	if correction_distance <= Config.LOCAL_RECONCILE_SMOOTH_DISTANCE and _is_valid_local_position(local_position):
+		local_position = local_position.lerp(authoritative_position, Config.LOCAL_RECONCILE_SMOOTH_WEIGHT)
+		return
+
+	local_position = authoritative_position
 
 func _sync_player_visuals() -> void:
 	if network_players_root == null or player_template == null:
@@ -451,12 +471,11 @@ func _apply_player_visual_state(visual: Node2D, player_id: String, player: Dicti
 	_apply_visual_health(visual, int(player.get("health", 100)))
 
 func _visual_is_moving(player_id: String, is_local: bool, movement_delta: Vector2) -> bool:
-	if movement_delta.length_squared() > 0.25:
-		if not is_local:
-			player_visual_moving_until_ms[player_id] = Time.get_ticks_msec() + REMOTE_MOVEMENT_ANIMATION_HOLD_MS
-		return true
 	if is_local:
-		return false
+		return local_visual_moving
+	if movement_delta.length_squared() > 0.25:
+		player_visual_moving_until_ms[player_id] = Time.get_ticks_msec() + REMOTE_MOVEMENT_ANIMATION_HOLD_MS
+		return true
 	return int(player_visual_moving_until_ms.get(player_id, 0)) > Time.get_ticks_msec()
 
 func _cache_authoritative_direction(player_id: String, player: Dictionary) -> void:
@@ -569,7 +588,6 @@ func _update_camera(delta: float) -> void:
 	if camera == null:
 		return
 	if delta <= 0.0:
-		camera.position = local_position
 		return
 	camera.position = camera.position.lerp(local_position, clampf(delta * 8.0, 0.0, 1.0))
 

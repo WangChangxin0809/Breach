@@ -19,6 +19,9 @@ const OP_CHARACTER_SELECT_STATE := 4
 const PLAYER_MOVE_SPEED := 220.0
 const PLAYER_RADIUS := 16.0
 const MAP_SIZE := Vector2(1600.0, 960.0)
+const LOCAL_RECONCILE_DEADZONE := 18.0
+const LOCAL_RECONCILE_SMOOTH_DISTANCE := 96.0
+const LOCAL_RECONCILE_SMOOTH_WEIGHT := 0.12
 
 # 视野系统参数（与服务端 config/characters.go 保持一致）
 const VISION_RADIUS := 180.0       # 圆形视野半径，不看朝向
