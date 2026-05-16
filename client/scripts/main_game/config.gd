@@ -23,8 +23,8 @@ const LOCAL_RECONCILE_DEADZONE := 18.0
 const LOCAL_RECONCILE_SMOOTH_DISTANCE := 96.0
 const LOCAL_RECONCILE_SMOOTH_WEIGHT := 0.12
 
-# 视野系统参数（与服务端 config/characters.go 保持一致）
-const VISION_RADIUS := 180.0       # 圆形视野半径，不看朝向
+# 视野系统参数（与服务端 config/data/characters.json 保持一致）
+const VISION_RADIUS := 48.0        # 圆形视野半径，不看朝向，仅覆盖角色周围一小圈
 const VISION_CONE := 420.0         # 锥形视野最大距离
 const VISION_CONE_HALF_ANGLE := 0.5235987756  # 锥形半角 30°
 const MAP_GEOMETRY_PATH := "res://data/maps/dev_map_collision.json"

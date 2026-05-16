@@ -18,6 +18,7 @@ const REMOTE_INTERPOLATION_DELAY_MS := 110
 const REMOTE_EXTRAPOLATION_LIMIT_MS := 100
 const REMOTE_SNAPSHOT_HISTORY_LIMIT := 8
 const REMOTE_SNAP_DISTANCE := 180.0
+const SHOW_VISION_DEBUG_OVERLAY := false
 const CIRCLE_OCCLUDER_SEGMENTS := 16
 const CAPSULE_OCCLUDER_HALF_SEGMENTS := 8
 
@@ -215,11 +216,13 @@ func _setup_vision_overlay() -> void:
 	vision_cone = Polygon2D.new()
 	vision_cone.name = "Cone"
 	vision_cone.color = Color(1.0, 1.0, 1.0, 0.05)
+	vision_cone.visible = SHOW_VISION_DEBUG_OVERLAY
 	vision_overlay.add_child(vision_cone)
 
 	vision_radius = Polygon2D.new()
 	vision_radius.name = "ShortRange"
 	vision_radius.color = Color(1.0, 1.0, 1.0, 0.03)
+	vision_radius.visible = SHOW_VISION_DEBUG_OVERLAY
 	vision_overlay.add_child(vision_radius)
 
 func _setup_ui() -> void:
@@ -780,6 +783,8 @@ func _update_camera(delta: float) -> void:
 	camera.position = camera.position.lerp(local_position, clampf(delta * 8.0, 0.0, 1.0))
 
 func _update_vision_overlay() -> void:
+	if not SHOW_VISION_DEBUG_OVERLAY:
+		return
 	if vision_cone == null or vision_radius == null:
 		return
 
