@@ -119,7 +119,17 @@ func equip_weapon(weapon_scene: PackedScene) -> Node2D:
 	var existing_weapon := weapon
 	if existing_weapon == null or not is_instance_valid(existing_weapon):
 		existing_weapon = get_node_or_null(weapon_node_path) as Node2D
+	var mount_transform := Transform2D.IDENTITY
+	var mount_y_sort_enabled := false
+	var mount_z_index := 0
+	var mount_z_as_relative := true
+	var mount_index := -1
 	if existing_weapon and is_instance_valid(existing_weapon):
+		mount_transform = existing_weapon.transform
+		mount_y_sort_enabled = existing_weapon.y_sort_enabled
+		mount_z_index = existing_weapon.z_index
+		mount_z_as_relative = existing_weapon.z_as_relative
+		mount_index = existing_weapon.get_index()
 		var existing_parent := existing_weapon.get_parent()
 		if existing_parent:
 			existing_parent.remove_child(existing_weapon)
@@ -128,7 +138,13 @@ func equip_weapon(weapon_scene: PackedScene) -> Node2D:
 	if weapon == null:
 		return null
 	weapon.name = str(weapon_node_path)
+	weapon.transform = mount_transform
+	weapon.y_sort_enabled = mount_y_sort_enabled
+	weapon.z_index = mount_z_index
+	weapon.z_as_relative = mount_z_as_relative
 	add_child(weapon)
+	if mount_index >= 0:
+		move_child(weapon, mini(mount_index, get_child_count() - 1))
 	set_facing(default_facing)
 	return weapon
 

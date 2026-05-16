@@ -31,6 +31,13 @@ func _run() -> void:
 	_assert(standalone_weapon != null, "player scene should include a weapon mount")
 	_assert(standalone_weapon.has_method("set_facing"), "player weapon should inherit WeaponBase facing API")
 	_assert(standalone_weapon.has_method("set_weapon_texture"), "player weapon should inherit WeaponBase texture API")
+	var original_weapon_position := standalone_weapon.position
+	var equipped_weapon := standalone_player.call("equip_weapon", WEAPON_SCENE) as Node2D
+	_assert(equipped_weapon != null, "equip_weapon should return the equipped weapon")
+	_assert(
+		equipped_weapon.position.is_equal_approx(original_weapon_position),
+		"equip_weapon should preserve the original weapon mount position"
+	)
 
 	standalone_player.queue_free()
 
