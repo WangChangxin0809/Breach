@@ -271,7 +271,7 @@ func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatche
 	if err != nil {
 		return fmt.Errorf("marshal game state: %w", err)
 	}
-	return dispatcher.BroadcastMessage(OpCodeGameState, data, current.ActivePresences(), nil, true)
+	return dispatcher.BroadcastMessage(OpCodeGameState, data, current.ActivePresences(), nil, false)
 }
 
 func broadcastCharacterSelectState(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState) error {

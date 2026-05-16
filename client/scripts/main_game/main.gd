@@ -14,6 +14,10 @@ const DEFENDER_COLOR := Color(1.0, 0.42, 0.27, 1.0)
 const ATTACKER_LIGHT_COLOR := Color(0.44, 0.72, 1.0, 1.0)
 const DEFENDER_LIGHT_COLOR := Color(1.0, 0.48, 0.28, 1.0)
 const REMOTE_MOVEMENT_ANIMATION_HOLD_MS := 160
+const REMOTE_INTERPOLATION_DELAY_MS := 110
+const REMOTE_EXTRAPOLATION_LIMIT_MS := 100
+const REMOTE_SNAPSHOT_HISTORY_LIMIT := 8
+const REMOTE_SNAP_DISTANCE := 180.0
 const CIRCLE_OCCLUDER_SEGMENTS := 16
 const CAPSULE_OCCLUDER_HALF_SEGMENTS := 8
 
@@ -24,6 +28,8 @@ var player_visual_character_ids: Dictionary = {}
 var previous_player_positions: Dictionary = {}
 var player_visual_directions: Dictionary = {}
 var player_visual_moving_until_ms: Dictionary = {}
+var remote_player_snapshots: Dictionary = {}
+var remote_player_render_positions: Dictionary = {}
 var movement_obstacles: Array[Dictionary] = []
 var vision_obstacles: Array[Dictionary] = []
 var my_user_id := ""
@@ -141,6 +147,8 @@ func _on_authoritative_state(state: Dictionary) -> void:
 	latest_round_time = state["round_time_remaining"]
 
 	var active_player_ids := {}
+	var server_tick := int(state.get("tick", 0))
+	var received_at_ms := Time.get_ticks_msec()
 	for raw_player in state["players"]:
 		var player: Dictionary = raw_player
 		var player_id: String = player["user_id"]
@@ -149,10 +157,13 @@ func _on_authoritative_state(state: Dictionary) -> void:
 		_cache_authoritative_direction(player_id, player)
 		if player_id == my_user_id:
 			_reconcile_local_position(player["position"])
+		else:
+			_record_remote_player_snapshot(player_id, player, server_tick, received_at_ms)
 
 	for player_id in players.keys():
 		if not active_player_ids.has(player_id):
 			players.erase(player_id)
+			_clear_remote_player_history(player_id)
 
 	_update_match_ui()
 	_sync_player_visuals()
@@ -304,6 +315,113 @@ func _can_update_local_position() -> bool:
 func _can_send_local_state() -> bool:
 	return _is_connected_to_authoritative_match() and local_authoritative_position_ready
 
+func _record_remote_player_snapshot(player_id: String, player: Dictionary, server_tick: int, received_at_ms: int) -> void:
+	if player_id.is_empty():
+		return
+
+	var position: Vector2 = player.get("position", Vector2.ZERO)
+	var has_direction := bool(player.get("has_direction", false))
+	var direction := Vector2.ZERO
+	if has_direction:
+		direction = player.get("direction", Vector2.ZERO)
+
+	var snapshots: Array = remote_player_snapshots.get(player_id, [])
+	if not snapshots.is_empty():
+		var latest: Dictionary = snapshots[snapshots.size() - 1]
+		var latest_tick := int(latest.get("tick", 0))
+		if server_tick > 0 and latest_tick > server_tick:
+			return
+		var latest_position: Vector2 = latest.get("position", position)
+		if latest_position.distance_to(position) > REMOTE_SNAP_DISTANCE:
+			snapshots.clear()
+			previous_player_positions.erase(player_id)
+			remote_player_render_positions.erase(player_id)
+		elif server_tick > 0 and latest_tick == server_tick:
+			snapshots[snapshots.size() - 1] = {
+				"tick": server_tick,
+				"received_at_ms": received_at_ms,
+				"position": position,
+				"direction": direction,
+				"has_direction": has_direction,
+			}
+			remote_player_snapshots[player_id] = snapshots
+			return
+
+	snapshots.append({
+		"tick": server_tick,
+		"received_at_ms": received_at_ms,
+		"position": position,
+		"direction": direction,
+		"has_direction": has_direction,
+	})
+	while snapshots.size() > REMOTE_SNAPSHOT_HISTORY_LIMIT:
+		snapshots.pop_front()
+	remote_player_snapshots[player_id] = snapshots
+
+func _remote_render_position(player_id: String, fallback_position: Vector2) -> Vector2:
+	var snapshots: Array = remote_player_snapshots.get(player_id, [])
+	if snapshots.is_empty():
+		remote_player_render_positions[player_id] = fallback_position
+		return fallback_position
+	if snapshots.size() == 1:
+		var only_snapshot: Dictionary = snapshots[0]
+		var only_position: Vector2 = only_snapshot.get("position", fallback_position)
+		remote_player_render_positions[player_id] = only_position
+		return only_position
+
+	var render_time_ms := Time.get_ticks_msec() - REMOTE_INTERPOLATION_DELAY_MS
+	var previous_snapshot := {}
+	var next_snapshot := {}
+	for raw_snapshot in snapshots:
+		var snapshot: Dictionary = raw_snapshot
+		if int(snapshot.get("received_at_ms", 0)) <= render_time_ms:
+			previous_snapshot = snapshot
+		else:
+			next_snapshot = snapshot
+			break
+
+	var rendered_position := fallback_position
+	if not previous_snapshot.is_empty() and not next_snapshot.is_empty():
+		rendered_position = _interpolate_remote_snapshots(previous_snapshot, next_snapshot, render_time_ms, fallback_position)
+	elif not next_snapshot.is_empty():
+		rendered_position = next_snapshot.get("position", fallback_position)
+	else:
+		rendered_position = _extrapolate_remote_snapshots(snapshots, render_time_ms, fallback_position)
+
+	remote_player_render_positions[player_id] = rendered_position
+	return rendered_position
+
+func _interpolate_remote_snapshots(previous_snapshot: Dictionary, next_snapshot: Dictionary, render_time_ms: int, fallback_position: Vector2) -> Vector2:
+	var previous_position: Vector2 = previous_snapshot.get("position", fallback_position)
+	var next_position: Vector2 = next_snapshot.get("position", previous_position)
+	if previous_position.distance_to(next_position) > REMOTE_SNAP_DISTANCE:
+		return next_position
+
+	var previous_time := int(previous_snapshot.get("received_at_ms", render_time_ms))
+	var next_time := int(next_snapshot.get("received_at_ms", previous_time + 1))
+	var span_ms: int = max(1, next_time - previous_time)
+	var weight := clampf(float(render_time_ms - previous_time) / float(span_ms), 0.0, 1.0)
+	return previous_position.lerp(next_position, weight)
+
+func _extrapolate_remote_snapshots(snapshots: Array, render_time_ms: int, fallback_position: Vector2) -> Vector2:
+	var latest: Dictionary = snapshots[snapshots.size() - 1]
+	var previous: Dictionary = snapshots[snapshots.size() - 2]
+	var latest_position: Vector2 = latest.get("position", fallback_position)
+	var previous_position: Vector2 = previous.get("position", latest_position)
+	if previous_position.distance_to(latest_position) > REMOTE_SNAP_DISTANCE:
+		return latest_position
+
+	var latest_time := int(latest.get("received_at_ms", render_time_ms))
+	var previous_time := int(previous.get("received_at_ms", latest_time - 1))
+	var sample_span_ms: int = max(1, latest_time - previous_time)
+	var lead_ms := clampi(render_time_ms - latest_time, 0, REMOTE_EXTRAPOLATION_LIMIT_MS)
+	var velocity_per_ms := (latest_position - previous_position) / float(sample_span_ms)
+	return latest_position + velocity_per_ms * float(lead_ms)
+
+func _clear_remote_player_history(player_id: String) -> void:
+	remote_player_snapshots.erase(player_id)
+	remote_player_render_positions.erase(player_id)
+
 func _reconcile_local_position(authoritative_position: Vector2) -> void:
 	if not local_authoritative_position_ready:
 		local_position = authoritative_position
@@ -341,6 +459,7 @@ func _sync_player_visuals() -> void:
 			player_visual_directions.erase(player_id)
 			player_visual_moving_until_ms.erase(player_id)
 			player_visual_character_ids.erase(player_id)
+			_clear_remote_player_history(player_id)
 			visual = null
 		if visual == null or not is_instance_valid(visual):
 			visual = _create_player_visual(player_id, player)
@@ -358,6 +477,7 @@ func _sync_player_visuals() -> void:
 		previous_player_positions.erase(player_id)
 		player_visual_directions.erase(player_id)
 		player_visual_moving_until_ms.erase(player_id)
+		_clear_remote_player_history(player_id)
 
 func _current_render_states() -> Array:
 	var states: Array = []
@@ -491,6 +611,8 @@ func _apply_player_visual_state(visual: Node2D, player_id: String, player: Dicti
 	var position: Vector2 = player["position"]
 	if is_local:
 		position = local_position
+	else:
+		position = _remote_render_position(player_id, position)
 
 	visual.position = position
 	_set_visual_lights_visible(visual, is_local)
