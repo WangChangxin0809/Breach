@@ -39,6 +39,14 @@ func withinBounds(cfg *config.GameConfig, character config.CharacterConfig, pos 
 }
 
 func collidesWithObstacle(cfg *config.GameConfig, pos state.Vec2, radius float64) bool {
+	if len(cfg.Map.Obstacles) > 0 {
+		for _, obstacle := range cfg.Map.Obstacles {
+			if obstacle.BlocksMovement && collidesWithShape(pos, radius, obstacle) {
+				return true
+			}
+		}
+		return false
+	}
 	for _, obstacle := range cfg.Map.SolidObstacles {
 		closestX := clamp(pos.X, obstacle.X, obstacle.X+obstacle.W)
 		closestY := clamp(pos.Y, obstacle.Y, obstacle.Y+obstacle.H)

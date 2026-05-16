@@ -91,6 +91,8 @@ type PlayerState struct {
 	Position    *Vector2 `protobuf:"bytes,4,opt,name=position,proto3" json:"position,omitempty"`
 	Health      int32    `protobuf:"varint,5,opt,name=health,proto3" json:"health,omitempty"`
 	Connected   bool     `protobuf:"varint,6,opt,name=connected,proto3" json:"connected,omitempty"`
+	Direction   *Vector2 `protobuf:"bytes,7,opt,name=direction,proto3" json:"direction,omitempty"`
+	CharacterId string   `protobuf:"bytes,8,opt,name=character_id,json=characterId,proto3" json:"character_id,omitempty"`
 }
 
 func (m *PlayerState) Reset()         { *m = PlayerState{} }

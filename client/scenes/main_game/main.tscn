@@ -1,6 +1,29 @@
-[gd_scene format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" uid="uid://c18ur8008ovc7" path="res://scripts/main_game/main.gd" id="1"]
+[ext_resource type="PackedScene" uid="uid://dbijtrfobxewb" path="res://scenes/test/art_test.tscn" id="2_art_test"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1")
+
+[node name="ArtWorld" parent="." instance=ExtResource("2_art_test")]
+
+[node name="SpawnPoints" type="Node2D" parent="."]
+
+[node name="AttackersSpawn0" type="Marker2D" parent="SpawnPoints" groups=["spawn_attackers"]]
+position = Vector2(320, 120)
+
+[node name="AttackersSpawn1" type="Marker2D" parent="SpawnPoints" groups=["spawn_attackers"]]
+position = Vector2(320, 180)
+
+[node name="AttackersSpawn2" type="Marker2D" parent="SpawnPoints" groups=["spawn_attackers"]]
+position = Vector2(300, 240)
+
+[node name="DefendersSpawn0" type="Marker2D" parent="SpawnPoints" groups=["spawn_defenders"]]
+position = Vector2(980, 360)
+
+[node name="DefendersSpawn1" type="Marker2D" parent="SpawnPoints" groups=["spawn_defenders"]]
+position = Vector2(1000, 320)
+
+[node name="DefendersSpawn2" type="Marker2D" parent="SpawnPoints" groups=["spawn_defenders"]]
+position = Vector2(940, 420)

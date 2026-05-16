@@ -7,8 +7,9 @@
       "max_speed": 220.0,
       "respawn_delay_sec": 5,
       "collision_radius": 16.0,
-      "vision_radius": 180.0,
-      "vision_cone_length": 420.0
+      "vision_radius": 48.0,
+      "vision_cone_length": 300.0,
+      "vision_cone_half_angle_rad": 0.5235987756
     },
     {
       "id": "fura",
@@ -16,8 +17,9 @@
       "max_speed": 215.0,
       "respawn_delay_sec": 5,
       "collision_radius": 16.0,
-      "vision_radius": 170.0,
-      "vision_cone_length": 400.0
+      "vision_radius": 48.0,
+      "vision_cone_length": 300.0,
+      "vision_cone_half_angle_rad": 0.5235987756
     },
     {
       "id": "isaac",
@@ -25,8 +27,9 @@
       "max_speed": 225.0,
       "respawn_delay_sec": 5,
       "collision_radius": 16.0,
-      "vision_radius": 190.0,
-      "vision_cone_length": 450.0
+      "vision_radius": 48.0,
+      "vision_cone_length": 300.0,
+      "vision_cone_half_angle_rad": 0.5235987756
     },
     {
       "id": "morgan",
@@ -34,8 +37,9 @@
       "max_speed": 230.0,
       "respawn_delay_sec": 5,
       "collision_radius": 16.0,
-      "vision_radius": 180.0,
-      "vision_cone_length": 420.0
+      "vision_radius": 48.0,
+      "vision_cone_length": 300.0,
+      "vision_cone_half_angle_rad": 0.5235987756
     }
   ]
 }

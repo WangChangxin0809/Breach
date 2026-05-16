@@ -5,6 +5,9 @@ const DEFAULT_OUTPUT := "../server/modules/config/data/maps/dev_map_collision.js
 const DEFAULT_WIDTH := 1600.0
 const DEFAULT_HEIGHT := 960.0
 const MAP_VERSION := 1
+const PROP_EXPORT_TO_SERVER := "export_to_server"
+const PROP_BLOCKS_MOVEMENT := "blocks_movement"
+const PROP_BLOCKS_VISION := "blocks_vision"
 
 var _exit_code := 0
 
@@ -30,21 +33,23 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	var collision_shapes: Array = []
-	_collect_collision_shapes(scene_root, scene_root, collision_shapes)
+	var obstacles: Array = []
+	_collect_collision_shapes(scene_root, scene_root, obstacles)
 	if include_tilemaps:
-		_collect_tilemap_rects(scene_root, scene_root, collision_shapes)
-	collision_shapes.sort_custom(_sort_by_source_path)
-	if collision_shapes.is_empty() and not allow_empty:
+		_collect_tilemap_rects(scene_root, scene_root, obstacles)
+	obstacles.sort_custom(_sort_by_source_path)
+	if obstacles.is_empty() and not allow_empty:
 		_fail("Scene %s has no exported collision shapes. Pass --allow-empty to write an empty map." % scene_path)
 		return
 
+	var collision_shapes := _legacy_collision_shapes(obstacles)
 	var payload := {
 		"version": MAP_VERSION,
 		"source_scene": scene_path,
 		"map": {
 			"width": map_width,
 			"height": map_height,
+			"obstacles": obstacles,
 			"collision_shapes": collision_shapes,
 			"spawn_points": _collect_spawn_points(scene_root),
 		},
@@ -52,7 +57,7 @@ func _run() -> void:
 
 	if not _write_json(output_path, payload):
 		return
-	print("Exported %d collision shapes to %s" % [collision_shapes.size(), output_path])
+	print("Exported %d obstacles to %s" % [obstacles.size(), output_path])
 	quit(_exit_code)
 
 func _parse_options() -> Dictionary:
@@ -72,17 +77,24 @@ func _parse_options() -> Dictionary:
 	return options
 
 func _collect_collision_shapes(scene_root: Node, current: Node, out: Array) -> void:
-	if current is CollisionShape2D and _is_server_static_collision(current):
+	if current is CollisionShape2D and _should_export_collision_node(current):
 		var shape_data := _shape_to_data(scene_root, current)
 		if not shape_data.is_empty():
 			out.append(shape_data)
-	elif current is CollisionPolygon2D and _is_server_static_collision(current):
+	elif current is CollisionPolygon2D and _should_export_collision_node(current):
 		var polygon_data := _polygon_to_data(scene_root, current)
 		if not polygon_data.is_empty():
 			out.append(polygon_data)
 
 	for child in current.get_children():
 		_collect_collision_shapes(scene_root, child, out)
+
+func _should_export_collision_node(node: Node) -> bool:
+	if _has_marker_in_ancestors(node, PROP_EXPORT_TO_SERVER):
+		return bool(_get_marker_from_ancestors(node, PROP_EXPORT_TO_SERVER, false))
+	if _has_marker_in_ancestors(node, PROP_BLOCKS_MOVEMENT) or _has_marker_in_ancestors(node, PROP_BLOCKS_VISION):
+		return true
+	return _is_server_static_collision(node)
 
 func _is_server_static_collision(node: Node) -> bool:
 	var parent := node.get_parent()
@@ -94,15 +106,38 @@ func _is_server_static_collision(node: Node) -> bool:
 		parent = parent.get_parent()
 	return false
 
+func _obstacle_flags(node: Node) -> Dictionary:
+	var blocks_movement := _is_server_static_collision(node)
+	var blocks_vision := _has_light_occluder_near(node)
+	if _has_marker_in_ancestors(node, PROP_BLOCKS_MOVEMENT):
+		blocks_movement = bool(_get_marker_from_ancestors(node, PROP_BLOCKS_MOVEMENT, blocks_movement))
+	if _has_marker_in_ancestors(node, PROP_BLOCKS_VISION):
+		blocks_vision = bool(_get_marker_from_ancestors(node, PROP_BLOCKS_VISION, blocks_vision))
+	if node.is_in_group("server_movement"):
+		blocks_movement = true
+	if node.is_in_group("server_vision"):
+		blocks_vision = true
+	if node.is_in_group("server_no_movement"):
+		blocks_movement = false
+	if node.is_in_group("server_no_vision"):
+		blocks_vision = false
+	return {
+		"blocks_movement": blocks_movement,
+		"blocks_vision": blocks_vision,
+	}
+
 func _shape_to_data(scene_root: Node, node: CollisionShape2D) -> Dictionary:
 	if node.disabled or node.shape == null:
 		return {}
 
 	var source_path := _relative_path(scene_root, node)
+	var flags := _obstacle_flags(node)
 	var base := {
 		"id": _stable_id(source_path),
 		"name": node.name,
 		"source_path": source_path,
+		"blocks_movement": flags["blocks_movement"],
+		"blocks_vision": flags["blocks_vision"],
 	}
 
 	if node.shape is RectangleShape2D:
@@ -148,11 +183,14 @@ func _polygon_to_data(scene_root: Node, node: CollisionPolygon2D) -> Dictionary:
 	var points := []
 	for point in node.polygon:
 		points.append(node.global_transform * point)
+	var flags := _obstacle_flags(node)
 
 	return {
 		"id": _stable_id(source_path),
 		"name": node.name,
 		"source_path": source_path,
+		"blocks_movement": flags["blocks_movement"],
+		"blocks_vision": flags["blocks_vision"],
 		"type": "polygon",
 		"points": _serialize_points(points),
 	}
@@ -169,6 +207,8 @@ func _collect_tilemap_rects(scene_root: Node, out_root: Node, out: Array) -> voi
 				"id": _stable_id(source_path),
 				"name": layer.name,
 				"source_path": source_path,
+				"blocks_movement": true,
+				"blocks_vision": true,
 				"type": "rect",
 				"x": minf(top_left.x, bottom_right.x),
 				"y": minf(top_left.y, bottom_right.y),
@@ -181,6 +221,60 @@ func _collect_tilemap_rects(scene_root: Node, out_root: Node, out: Array) -> voi
 
 func _should_export_tilemap(layer: TileMapLayer) -> bool:
 	return layer.is_in_group("server_collision") or layer.get_meta("export_server_collision", false)
+
+func _has_light_occluder_near(node: Node) -> bool:
+	var parent := node.get_parent()
+	if parent == null:
+		return false
+	for sibling in parent.get_children():
+		if sibling is LightOccluder2D:
+			return true
+	return _has_light_occluder_ancestor_sibling(node)
+
+func _has_light_occluder_ancestor_sibling(node: Node) -> bool:
+	var current := node.get_parent()
+	while current:
+		for child in current.get_children():
+			if child is LightOccluder2D:
+				return true
+		if current is CharacterBody2D or current is RigidBody2D or current is Area2D:
+			return false
+		current = current.get_parent()
+	return false
+
+func _has_marker_in_ancestors(node: Node, key: String) -> bool:
+	var current: Node = node
+	while current:
+		if current.has_meta(key) or _has_property(current, key):
+			return true
+		current = current.get_parent()
+	return false
+
+func _get_marker_from_ancestors(node: Node, key: String, fallback: Variant) -> Variant:
+	var current: Node = node
+	while current:
+		if current.has_meta(key):
+			return current.get_meta(key)
+		if _has_property(current, key):
+			return current.get(key)
+		current = current.get_parent()
+	return fallback
+
+func _has_property(node: Node, key: String) -> bool:
+	for property in node.get_property_list():
+		if str(property.get("name", "")) == key:
+			return true
+	return false
+
+func _legacy_collision_shapes(obstacles: Array) -> Array:
+	var shapes := []
+	for obstacle in obstacles:
+		if bool(obstacle.get("blocks_movement", false)):
+			var shape: Dictionary = obstacle.duplicate(true)
+			shape.erase("blocks_movement")
+			shape.erase("blocks_vision")
+			shapes.append(shape)
+	return shapes
 
 func _collect_spawn_points(scene_root: Node) -> Dictionary:
 	var spawn_points := {

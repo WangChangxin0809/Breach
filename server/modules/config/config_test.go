@@ -25,6 +25,18 @@ func TestLoadEmbeddedConfig(t *testing.T) {
 	if _, exists := cfg.Weapons["default_sidearm"]; !exists {
 		t.Fatalf("expected default_sidearm weapon to exist")
 	}
+	if len(cfg.Map.Obstacles) == 0 {
+		t.Fatalf("expected embedded map to include exported semantic obstacles")
+	}
+	if !hasObstacleWithFlags(cfg, "ArtWorld/LowCoverCrate/CollisionShape2D", true, false) {
+		t.Fatalf("expected low cover to block movement without blocking vision")
+	}
+	if !hasObstacleWithFlags(cfg, "ArtWorld/VisionBlockerHighCrate/CollisionShape2D", true, true) {
+		t.Fatalf("expected high crate to block movement and vision")
+	}
+	if len(cfg.Map.SpawnPoints["attackers"]) != 3 || len(cfg.Map.SpawnPoints["defenders"]) != 3 {
+		t.Fatalf("expected exported spawn points for both factions, got %#v", cfg.Map.SpawnPoints)
+	}
 }
 
 func TestLoadFromDirRejectsInvalidConfig(t *testing.T) {
@@ -86,4 +98,15 @@ func writeJSON(t *testing.T, dir string, name string, value interface{}) {
 	if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
 		t.Fatalf("write %s: %v", name, err)
 	}
+}
+
+func hasObstacleWithFlags(cfg *GameConfig, sourcePath string, blocksMovement bool, blocksVision bool) bool {
+	for _, obstacle := range cfg.Map.Obstacles {
+		if obstacle.SourcePath == sourcePath &&
+			obstacle.BlocksMovement == blocksMovement &&
+			obstacle.BlocksVision == blocksVision {
+			return true
+		}
+	}
+	return false
 }

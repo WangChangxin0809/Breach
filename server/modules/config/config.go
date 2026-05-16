@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 )
@@ -12,6 +13,8 @@ const (
 	MATCH_MODULE_NAME = "breach_match"
 
 	configDirEnv = "BREACH_CONFIG_DIR"
+
+	DefaultVisionConeHalfAngleRad = math.Pi / 6
 )
 
 //go:embed data/*.json data/maps/*.json
@@ -48,11 +51,12 @@ type MatchConfig struct {
 }
 
 type MapConfig struct {
-	Width           float64                     `json:"width"`
-	Height          float64                     `json:"height"`
-	SolidObstacles  []Rect                      `json:"solid_obstacles,omitempty"`
-	CollisionShapes []CollisionShape            `json:"collision_shapes,omitempty"`
-	SpawnPoints     map[string][]MapPoint       `json:"spawn_points,omitempty"`
+	Width           float64               `json:"width"`
+	Height          float64               `json:"height"`
+	Obstacles       []CollisionShape      `json:"obstacles,omitempty"`
+	SolidObstacles  []Rect                `json:"solid_obstacles,omitempty"`
+	CollisionShapes []CollisionShape      `json:"collision_shapes,omitempty"`
+	SpawnPoints     map[string][]MapPoint `json:"spawn_points,omitempty"`
 }
 
 type Rect struct {
@@ -68,28 +72,31 @@ type MapPoint struct {
 }
 
 type CollisionShape struct {
-	ID         string     `json:"id,omitempty"`
-	Name       string     `json:"name,omitempty"`
-	SourcePath string     `json:"source_path,omitempty"`
-	Type       string     `json:"type"`
-	X          float64    `json:"x,omitempty"`
-	Y          float64    `json:"y,omitempty"`
-	W          float64    `json:"w,omitempty"`
-	H          float64    `json:"h,omitempty"`
-	Radius     float64    `json:"radius,omitempty"`
-	A          *MapPoint  `json:"a,omitempty"`
-	B          *MapPoint  `json:"b,omitempty"`
-	Points     []MapPoint `json:"points,omitempty"`
+	ID             string     `json:"id,omitempty"`
+	Name           string     `json:"name,omitempty"`
+	SourcePath     string     `json:"source_path,omitempty"`
+	Type           string     `json:"type"`
+	X              float64    `json:"x,omitempty"`
+	Y              float64    `json:"y,omitempty"`
+	W              float64    `json:"w,omitempty"`
+	H              float64    `json:"h,omitempty"`
+	Radius         float64    `json:"radius,omitempty"`
+	A              *MapPoint  `json:"a,omitempty"`
+	B              *MapPoint  `json:"b,omitempty"`
+	Points         []MapPoint `json:"points,omitempty"`
+	BlocksMovement bool       `json:"blocks_movement,omitempty"`
+	BlocksVision   bool       `json:"blocks_vision,omitempty"`
 }
 
 type CharacterConfig struct {
-	ID               string  `json:"id"`
-	BaseHealth       int     `json:"base_health"`
-	MaxSpeed         float64 `json:"max_speed"`
-	RespawnDelaySec  int     `json:"respawn_delay_sec"`
-	CollisionRadius  float64 `json:"collision_radius"`
-	VisionRadius     float64 `json:"vision_radius"`
-	VisionConeLength float64 `json:"vision_cone_length"`
+	ID                     string  `json:"id"`
+	BaseHealth             int     `json:"base_health"`
+	MaxSpeed               float64 `json:"max_speed"`
+	RespawnDelaySec        int     `json:"respawn_delay_sec"`
+	CollisionRadius        float64 `json:"collision_radius"`
+	VisionRadius           float64 `json:"vision_radius"`
+	VisionConeLength       float64 `json:"vision_cone_length"`
+	VisionConeHalfAngleRad float64 `json:"vision_cone_half_angle_rad,omitempty"`
 }
 
 type WeaponConfig struct {
@@ -201,6 +208,9 @@ func load(readJSON func(string, interface{}) error) (*GameConfig, error) {
 		if _, exists := cfg.Characters[character.ID]; exists {
 			return nil, fmt.Errorf("duplicate character id %q", character.ID)
 		}
+		if character.VisionConeHalfAngleRad == 0 {
+			character.VisionConeHalfAngleRad = DefaultVisionConeHalfAngleRad
+		}
 		cfg.Characters[character.ID] = character
 	}
 	for _, weapon := range weapons.Weapons {
@@ -256,6 +266,14 @@ func (c *GameConfig) Validate() error {
 			return fmt.Errorf("map collision_shapes[%d]: %w", i, err)
 		}
 	}
+	for i, obstacle := range c.Map.Obstacles {
+		if err := validateCollisionShape(c.Map, obstacle); err != nil {
+			return fmt.Errorf("map obstacles[%d]: %w", i, err)
+		}
+		if !obstacle.BlocksMovement && !obstacle.BlocksVision {
+			return fmt.Errorf("map obstacles[%d] must block movement or vision", i)
+		}
+	}
 	for faction, points := range c.Map.SpawnPoints {
 		if faction == "" {
 			return fmt.Errorf("map spawn point faction cannot be empty")
@@ -293,6 +311,9 @@ func (c *GameConfig) Validate() error {
 		}
 		if character.VisionRadius <= 0 || character.VisionConeLength <= 0 {
 			return fmt.Errorf("character %q vision ranges must be positive", id)
+		}
+		if character.VisionConeHalfAngleRad <= 0 || character.VisionConeHalfAngleRad >= math.Pi {
+			return fmt.Errorf("character %q vision cone half angle must be between 0 and pi radians", id)
 		}
 	}
 	if len(c.Weapons) == 0 {

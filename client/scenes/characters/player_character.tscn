@@ -1,0 +1,159 @@
+[gd_scene format=3 uid="uid://douqg0oknjgmj"]
+
+[ext_resource type="Script" uid="uid://dnvego6nijpo3" path="res://scripts/characters/Player.gd" id="1_player"]
+[ext_resource type="Texture2D" uid="uid://byx2v6kbfy1a0" path="res://assets/spiritframes/Player_01/Idle.png" id="2_idle"]
+[ext_resource type="Texture2D" uid="uid://b6gwg0eux3dba" path="res://assets/spiritframes/Player_01/Run.png" id="3_run"]
+[ext_resource type="PackedScene" path="res://scenes/weapons/sidearm_gun.tscn" id="4_sidearm"]
+[ext_resource type="Script" uid="uid://dlb4t24ho60nx" path="res://scripts/characters/player_camera.gd" id="5_camera"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_player"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_0"]
+atlas = ExtResource("2_idle")
+region = Rect2(0, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_1"]
+atlas = ExtResource("2_idle")
+region = Rect2(64, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_2"]
+atlas = ExtResource("2_idle")
+region = Rect2(128, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_3"]
+atlas = ExtResource("2_idle")
+region = Rect2(0, 64, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_4"]
+atlas = ExtResource("2_idle")
+region = Rect2(64, 64, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_5"]
+atlas = ExtResource("2_idle")
+region = Rect2(128, 64, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_run_0"]
+atlas = ExtResource("3_run")
+region = Rect2(0, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_run_1"]
+atlas = ExtResource("3_run")
+region = Rect2(64, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_run_2"]
+atlas = ExtResource("3_run")
+region = Rect2(128, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_run_3"]
+atlas = ExtResource("3_run")
+region = Rect2(0, 64, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_run_4"]
+atlas = ExtResource("3_run")
+region = Rect2(64, 64, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_run_5"]
+atlas = ExtResource("3_run")
+region = Rect2(128, 64, 64, 64)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_player"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_5")
+}],
+"loop": true,
+"name": &"Idle",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_run_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_run_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_run_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_run_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_run_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_run_5")
+}],
+"loop": true,
+"name": &"Run",
+"speed": 12.0
+}]
+
+[sub_resource type="Gradient" id="Gradient_body_light"]
+offsets = PackedFloat32Array(0.31578946, 0.48421052, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0.022807002, 0.022807002, 0.022807002, 1, 0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_body_light"]
+gradient = SubResource("Gradient_body_light")
+width = 80
+height = 80
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+
+[node name="PlayerCharacter" type="CharacterBody2D" unique_id=62985837 groups=["Player"]]
+y_sort_enabled = true
+scale = Vector2(1.2, 1.2)
+motion_mode = 1
+script = ExtResource("1_player")
+local_movement_enabled = true
+move_speed = 200.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=385600266]
+y_sort_enabled = true
+position = Vector2(0, -19.8)
+scale = Vector2(1.325, 1.32)
+shape = SubResource("CapsuleShape2D_player")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1759947750]
+y_sort_enabled = true
+texture_filter = 1
+position = Vector2(0, -21)
+sprite_frames = SubResource("SpriteFrames_player")
+animation = &"Run"
+flip_h = true
+
+[node name="BodyLight" type="PointLight2D" parent="." unique_id=522713374]
+y_sort_enabled = true
+position = Vector2(0, -18.333332)
+energy = 0.5
+shadow_enabled = true
+texture = SubResource("GradientTexture2D_body_light")
+
+[node name="WeaponPivot" parent="." unique_id=398419275 instance=ExtResource("4_sidearm")]
+y_sort_enabled = true
+position = Vector2(0, -12)
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=34837752]
+position = Vector2(-1, -23)
+zoom = Vector2(2, 2)
+position_smoothing_enabled = true
+position_smoothing_speed = 1.0
+rotation_smoothing_enabled = true
+rotation_smoothing_speed = 1.0
+script = ExtResource("5_camera")

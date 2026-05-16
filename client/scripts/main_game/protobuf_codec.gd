@@ -158,10 +158,13 @@ static func decode_player_state(bytes: PackedByteArray) -> Dictionary:
 	var result := {
 		"user_id": "",
 		"display_name": "",
+		"character_id": "",
 		"faction": 0,
 		"position": Vector2.ZERO,
 		"health": 0,
 		"connected": false,
+		"direction": Vector2.ZERO,
+		"has_direction": false,
 	}
 	while cursor[0] < bytes.size():
 		var tag := _read_varint(bytes, cursor)
@@ -180,6 +183,11 @@ static func decode_player_state(bytes: PackedByteArray) -> Dictionary:
 				result["health"] = _read_varint(bytes, cursor)
 			6:
 				result["connected"] = _read_varint(bytes, cursor) != 0
+			7:
+				result["direction"] = decode_vector2(_read_length_delimited(bytes, cursor))
+				result["has_direction"] = true
+			8:
+				result["character_id"] = _read_length_delimited(bytes, cursor).get_string_from_utf8()
 			_:
 				_skip_field(bytes, cursor, wire)
 	return result
