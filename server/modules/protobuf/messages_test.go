@@ -30,6 +30,9 @@ func TestMoveCommandRoundTrip(t *testing.T) {
 	if decoded.Position == nil || decoded.Position.X != original.Position.X || decoded.Position.Y != original.Position.Y {
 		t.Fatalf("decoded position mismatch: %#v", decoded.Position)
 	}
+	if decoded.Direction == nil || decoded.Direction.X != original.Direction.X || decoded.Direction.Y != original.Direction.Y {
+		t.Fatalf("decoded direction mismatch: %#v", decoded.Direction)
+	}
 }
 
 func TestCharacterSelectStateRoundTrip(t *testing.T) {

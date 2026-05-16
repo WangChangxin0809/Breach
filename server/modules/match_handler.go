@@ -110,6 +110,7 @@ func (m *BreachMatch) MatchJoin(ctx context.Context, logger runtime.Logger, db *
 				Faction:     faction,
 				Position:    spawn,
 				LastValid:   spawn,
+				Direction:   spawnDirection(faction),
 				Health:      character.BaseHealth,
 			}
 			current.Players[player.UserID] = player
@@ -234,6 +235,9 @@ func processMove(logger runtime.Logger, dispatcher runtime.MatchDispatcher, curr
 
 	player.Position = next
 	player.LastValid = next
+	if move.Direction != nil {
+		player.Direction = state.Vec2{X: float64(move.Direction.X), Y: float64(move.Direction.Y)}
+	}
 }
 
 func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState, tick int64, now time.Time) error {
@@ -252,6 +256,10 @@ func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatche
 			Position: &gamepb.Vector2{
 				X: float32(player.Position.X),
 				Y: float32(player.Position.Y),
+			},
+			Direction: &gamepb.Vector2{
+				X: float32(player.Direction.X),
+				Y: float32(player.Direction.Y),
 			},
 			Health:    int32(player.Health),
 			Connected: player.Connected,
@@ -324,6 +332,13 @@ func spawnPoint(faction state.Faction, index int) state.Vec2 {
 		return state.Vec2{X: 120 + offset, Y: 180 + offset}
 	}
 	return state.Vec2{X: cfg.Map.Width - 120 - offset, Y: cfg.Map.Height - 180 - offset}
+}
+
+func spawnDirection(faction state.Faction) state.Vec2 {
+	if faction == state.FACTION_DEFENDERS {
+		return state.Vec2{X: -1, Y: 0}
+	}
+	return state.Vec2{X: 1, Y: 0}
 }
 
 func configuredSpawnPoint(cfg *config.GameConfig, faction state.Faction, index int) (state.Vec2, bool) {

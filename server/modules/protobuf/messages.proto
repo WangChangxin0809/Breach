@@ -41,6 +41,7 @@ message PlayerState {
   Vector2 position = 4;
   int32 health = 5;
   bool connected = 6;
+  Vector2 direction = 7;
 }
 
 message GameState {

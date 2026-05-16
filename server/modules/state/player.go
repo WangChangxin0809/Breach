@@ -24,6 +24,7 @@ type Player struct {
 	Faction         Faction
 	Position        Vec2
 	LastValid       Vec2
+	Direction       Vec2
 	Health          int
 	Connected       bool
 	Presence        runtime.Presence

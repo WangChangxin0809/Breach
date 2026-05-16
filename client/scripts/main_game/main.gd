@@ -10,12 +10,14 @@ const ATTACKER_COLOR := Color(0.45, 0.78, 1.0, 1.0)
 const DEFENDER_COLOR := Color(1.0, 0.42, 0.27, 1.0)
 const ATTACKER_LIGHT_COLOR := Color(0.44, 0.72, 1.0, 1.0)
 const DEFENDER_LIGHT_COLOR := Color(1.0, 0.48, 0.28, 1.0)
+const REMOTE_MOVEMENT_ANIMATION_HOLD_MS := 160
 
 var network: NetworkClient
 var players: Dictionary = {}
 var player_visuals: Dictionary = {}
 var previous_player_positions: Dictionary = {}
 var player_visual_directions: Dictionary = {}
+var player_visual_moving_until_ms: Dictionary = {}
 var my_user_id := ""
 var my_match_id := ""
 var local_position := Vector2(120.0, 180.0)
@@ -87,7 +89,7 @@ func _physics_process(delta: float) -> void:
 		if _is_valid_local_position(predicted_position):
 			local_position = predicted_position
 			if can_send_to_match:
-				network.send_move(client_tick, local_position, direction)
+				network.send_move(client_tick, local_position, _local_facing_vector())
 				client_tick += 1
 	else:
 		idle_heartbeat = 0
@@ -127,6 +129,7 @@ func _on_authoritative_state(state: Dictionary) -> void:
 		var player_id: String = player["user_id"]
 		active_player_ids[player_id] = true
 		players[player_id] = player
+		_cache_authoritative_direction(player_id, player)
 		if player_id == my_user_id:
 			local_position = player["position"]
 			local_authoritative_position_ready = true
@@ -235,11 +238,16 @@ func _update_match_ui() -> void:
 		var marker := ""
 		if player_id == my_user_id:
 			marker = " <- you"
-		lines.append("%s  hp:%d  pos:(%.0f, %.0f)%s" % [
+		var direction_label := "dir:(--, --)"
+		if bool(player.get("has_direction", false)):
+			var direction: Vector2 = player.get("direction", Vector2.ZERO)
+			direction_label = "dir:(%.2f, %.2f)" % [direction.x, direction.y]
+		lines.append("%s  hp:%d  pos:(%.0f, %.0f)  %s%s" % [
 			tag,
 			player["health"],
 			player["position"].x,
 			player["position"].y,
+			direction_label,
 			marker,
 		])
 	player_list.text = "\n".join(lines)
@@ -306,6 +314,7 @@ func _sync_player_visuals() -> void:
 		player_visuals.erase(player_id)
 		previous_player_positions.erase(player_id)
 		player_visual_directions.erase(player_id)
+		player_visual_moving_until_ms.erase(player_id)
 
 func _current_render_states() -> Array:
 	var states: Array = []
@@ -410,6 +419,7 @@ func _apply_player_visual_state(visual: Node2D, player_id: String, player: Dicti
 		position = local_position
 
 	visual.position = position
+	_set_visual_lights_visible(visual, is_local)
 
 	if not bool(player.get("connected", true)):
 		visual.visible = false
@@ -422,20 +432,42 @@ func _apply_player_visual_state(visual: Node2D, player_id: String, player: Dicti
 	visual.visible = true
 	var previous_position: Vector2 = previous_player_positions.get(player_id, position)
 	var movement_delta := position - previous_position
-	var moving := movement_delta.length_squared() > 0.25
+	var moving := _visual_is_moving(player_id, is_local, movement_delta)
 	previous_player_positions[player_id] = position
 
-	var facing := _visual_facing_direction(player_id, is_local, movement_delta)
+	var facing := _visual_facing_direction(player_id, is_local, movement_delta, bool(player.get("has_direction", false)))
 	_apply_visual_facing(visual, facing)
 	_apply_visual_animation(visual, moving)
 	_apply_visual_faction(visual, int(player.get("faction", Config.FACTION_ATTACKERS)), is_local, int(player.get("health", 100)))
 	_apply_visual_health(visual, int(player.get("health", 100)))
 
-func _visual_facing_direction(player_id: String, is_local: bool, movement_delta: Vector2) -> Vector2:
+func _visual_is_moving(player_id: String, is_local: bool, movement_delta: Vector2) -> bool:
+	if movement_delta.length_squared() > 0.25:
+		if not is_local:
+			player_visual_moving_until_ms[player_id] = Time.get_ticks_msec() + REMOTE_MOVEMENT_ANIMATION_HOLD_MS
+		return true
+	if is_local:
+		return false
+	return int(player_visual_moving_until_ms.get(player_id, 0)) > Time.get_ticks_msec()
+
+func _cache_authoritative_direction(player_id: String, player: Dictionary) -> void:
+	if not bool(player.get("has_direction", false)):
+		return
+	var raw_direction: Variant = player.get("direction", Vector2.ZERO)
+	if not raw_direction is Vector2:
+		return
+	var direction := (raw_direction as Vector2)
+	if direction.length_squared() <= 0.001:
+		return
+	player_visual_directions[player_id] = direction.normalized()
+
+func _visual_facing_direction(player_id: String, is_local: bool, movement_delta: Vector2, has_authoritative_direction: bool) -> Vector2:
 	if is_local:
 		var facing := _local_facing_vector()
 		player_visual_directions[player_id] = facing
 		return facing
+	if has_authoritative_direction and player_visual_directions.has(player_id):
+		return player_visual_directions[player_id]
 	if movement_delta.length_squared() > 0.25:
 		var direction := movement_delta.normalized()
 		player_visual_directions[player_id] = direction
@@ -507,6 +539,12 @@ func _apply_visual_health(visual: Node2D, health: int) -> void:
 	if fill:
 		fill.points = PackedVector2Array([Vector2.ZERO, Vector2(HEALTH_BAR_WIDTH * ratio, 0.0)])
 		fill.default_color = Color(0.1, 0.85, 0.3, 1.0) if ratio > 0.3 else Color(0.92, 0.23, 0.18, 1.0)
+
+func _set_visual_lights_visible(visual: Node2D, enabled: bool) -> void:
+	for raw_light in visual.find_children("*", "PointLight2D", true, false):
+		var light := raw_light as PointLight2D
+		if light:
+			light.visible = enabled
 
 func _faction_color(faction: int) -> Color:
 	if faction == Config.FACTION_DEFENDERS:
