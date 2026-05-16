@@ -8,6 +8,7 @@ signal status_changed(message: String)
 signal authenticated(user_id: String, username: String)
 signal matchmaker_ticket_received(ticket: String)
 signal room_joined(party_id: String)
+signal room_join_failed(message: String)
 signal room_presences_received(presences: Array, leader_id: String)
 signal room_presence_changed(joins: Array, leaves: Array)
 signal room_data_received(op_code: int, sender_id: String, data: String)
@@ -21,6 +22,8 @@ var user_id := ""
 var reconnecting := false
 var matchmaker_ticket := ""
 var party_id := ""
+var restore_party_id := ""
+var restore_matchmaking := false
 
 
 func _ready() -> void:
@@ -62,24 +65,78 @@ func join_room(room_code: String) -> void:
 	if socket == null or not socket.is_connected_to_host():
 		status_changed.emit("Login before joining room")
 		return
-	status_changed.emit("Joining room %s" % room_code)
-	party_id = room_code
-	var result = await socket.join_party_async(room_code)
-	if result.is_exception():
-		party_id = ""
-		status_changed.emit("Join room failed: %s" % str(result.get_exception()))
+	var requested_party_id := _normalize_room_code(room_code)
+	if not _is_valid_party_id(requested_party_id):
+		var invalid_message := "房间号不存在"
+		status_changed.emit(invalid_message)
+		room_join_failed.emit(invalid_message)
 		return
+	status_changed.emit("Joining room %s" % requested_party_id)
+	var result = await socket.join_party_async(requested_party_id)
+	if result.is_exception():
+		var message := _join_room_error_message(result.get_exception())
+		status_changed.emit(message)
+		room_join_failed.emit(message)
+		return
+	party_id = requested_party_id
 	status_changed.emit("Room joined %s" % party_id)
 	room_joined.emit(party_id)
 
 
+func _join_room_error_message(error: NakamaException) -> String:
+	if error != null:
+		var message := error.message.to_lower()
+		if message.contains("party full"):
+			return "当前房间已满"
+		if message.contains("invalid party id") or message.contains("not found") or message.contains("does not exist") or message.contains("party not"):
+			return "房间号不存在"
+	return "加入房间失败：%s" % str(error)
+
+
+func _normalize_room_code(room_code: String) -> String:
+	var normalized := room_code.strip_edges()
+	if normalized.begins_with("房间号："):
+		normalized = normalized.trim_prefix("房间号：").strip_edges()
+	elif normalized.begins_with("房间号:"):
+		normalized = normalized.trim_prefix("房间号:").strip_edges()
+	return normalized
+
+
+func _is_valid_party_id(value: String) -> bool:
+	if value.contains(" ") or not value.contains("."):
+		return false
+	var uuid_part := value.get_slice(".", 0)
+	var node_part := value.get_slice(".", 1)
+	if uuid_part.length() != 36 or node_part.is_empty():
+		return false
+	return _is_hex_uuid(uuid_part)
+
+
+func _is_hex_uuid(value: String) -> bool:
+	for index: int in range(value.length()):
+		var character := value.substr(index, 1)
+		if index in [8, 13, 18, 23]:
+			if character != "-":
+				return false
+			continue
+		if not "0123456789abcdef".contains(character.to_lower()):
+			return false
+	return true
+
+
 func leave_room() -> void:
 	if not matchmaker_ticket.is_empty():
-		socket.remove_matchmaker_async(matchmaker_ticket)
+		var remove_result = await _remove_party_matchmaker_ticket()
+		if remove_result != null and remove_result.is_exception():
+			status_changed.emit("Matchmaking cancel failed: %s" % str(remove_result.get_exception()))
+			return
 		matchmaker_ticket = ""
 	if party_id.is_empty():
 		return
-	await socket.leave_party_async(party_id)
+	var result = await socket.leave_party_async(party_id)
+	if result != null and result.is_exception():
+		status_changed.emit("Leave room failed: %s" % str(result.get_exception()))
+		return
 	party_id = ""
 
 
@@ -87,14 +144,18 @@ func send_room_ready(is_ready: bool, leader_id: String = "") -> void:
 	if socket == null or party_id.is_empty():
 		return
 	var payload := JSON.stringify({"ready": is_ready, "user_id": user_id, "username": _display_name(), "leader_id": leader_id})
-	socket.send_party_data_async(party_id, Config.PARTY_OP_READY, payload)
+	var result = await socket.send_party_data_async(party_id, Config.PARTY_OP_READY, payload)
+	if result != null and result.is_exception():
+		status_changed.emit("Send ready failed: %s" % str(result.get_exception()))
 
 
 func send_room_matchmaking(active: bool) -> void:
 	if socket == null or party_id.is_empty():
 		return
 	var payload := JSON.stringify({"matchmaking": active})
-	socket.send_party_data_async(party_id, Config.PARTY_OP_MATCHMAKING, payload)
+	var result = await socket.send_party_data_async(party_id, Config.PARTY_OP_MATCHMAKING, payload)
+	if result != null and result.is_exception():
+		status_changed.emit("Send matchmaking state failed: %s" % str(result.get_exception()))
 
 
 func _display_name() -> String:
@@ -105,7 +166,7 @@ func _display_name() -> String:
 
 
 func start_room_matchmaking() -> void:
-	push_warning("[LOG] start_room_matchmaking called ticket=%s" % matchmaker_ticket)
+	print("[LOG] start_room_matchmaking called ticket=%s" % matchmaker_ticket)
 	if socket == null or not socket.is_connected_to_host():
 		status_changed.emit("Login before matchmaking")
 		return
@@ -113,7 +174,7 @@ func start_room_matchmaking() -> void:
 		status_changed.emit("Not in a room")
 		return
 	if not matchmaker_ticket.is_empty():
-		push_warning("[LOG] start_room_matchmaking SKIP: already has ticket")
+		print("[LOG] start_room_matchmaking SKIP: already has ticket")
 		status_changed.emit("Searching for match as party")
 		return
 	status_changed.emit("Searching for match as party")
@@ -126,28 +187,40 @@ func start_room_matchmaking() -> void:
 		{}
 	)
 	if ticket.is_exception():
-		push_warning("[LOG] PartyMatchmakerAdd FAILED: %s" % str(ticket.get_exception()))
+		print("[LOG] PartyMatchmakerAdd FAILED: %s" % str(ticket.get_exception()))
 		status_changed.emit("Party matchmaker failed: %s" % str(ticket.get_exception()))
 		return
 	matchmaker_ticket = ticket.ticket
-	push_warning("[LOG] PartyMatchmakerAdd OK ticket=%s" % matchmaker_ticket)
+	print("[LOG] PartyMatchmakerAdd OK ticket=%s" % matchmaker_ticket)
 	status_changed.emit("Party queued for %d-%d players" % [Config.MATCHMAKER_MIN_PLAYERS, Config.MATCHMAKER_MAX_PLAYERS])
 
 
 func cancel_matchmaking() -> void:
-	push_warning("[LOG] cancel_matchmaking called ticket=%s" % matchmaker_ticket)
+	print("[LOG] cancel_matchmaking called ticket=%s" % matchmaker_ticket)
 	if not matchmaker_ticket.is_empty():
-		push_warning("[LOG] cancel_matchmaking REMOVE ticket=%s" % matchmaker_ticket)
-		socket.remove_matchmaker_async(matchmaker_ticket)
+		print("[LOG] cancel_matchmaking REMOVE ticket=%s" % matchmaker_ticket)
+		var result = await _remove_party_matchmaker_ticket()
+		if result != null and result.is_exception():
+			status_changed.emit("Matchmaking cancel failed: %s" % str(result.get_exception()))
+			return
 	matchmaker_ticket = ""
 	status_changed.emit("Matchmaking cancelled")
+
+
+func _remove_party_matchmaker_ticket():
+	if socket == null or party_id.is_empty() or matchmaker_ticket.is_empty():
+		return null
+	return await socket.remove_matchmaker_party_async(party_id, matchmaker_ticket)
 
 
 func join_game_match(game_match_id: String) -> void:
 	if socket == null or game_match_id.is_empty():
 		return
 	if not party_id.is_empty():
-		await socket.leave_party_async(party_id)
+		var leave_result = await socket.leave_party_async(party_id)
+		if leave_result != null and leave_result.is_exception():
+			status_changed.emit("Leave room failed: %s" % str(leave_result.get_exception()))
+			return
 		party_id = ""
 	status_changed.emit("Joining game match")
 	var joined = await socket.join_match_async(game_match_id)
@@ -165,6 +238,7 @@ func send_idle(client_tick: int, position: Vector2, facing: Vector2) -> void:
 		return
 	var payload := ProtobufCodec.encode_move_command(client_tick, position, facing)
 	socket.send_match_state_raw_async(match_id, Config.OP_MOVE, payload)
+
 
 func send_move(client_tick: int, position: Vector2, facing: Vector2) -> void:
 	if socket == null or match_id.is_empty():
@@ -220,7 +294,10 @@ func _on_party_close(close_event) -> void:
 func _on_matchmaker_matched(matched: NakamaRTAPI.MatchmakerMatched) -> void:
 	status_changed.emit("Match found")
 	if not party_id.is_empty():
-		await socket.leave_party_async(party_id)
+		var leave_result = await socket.leave_party_async(party_id)
+		if leave_result != null and leave_result.is_exception():
+			status_changed.emit("Leave room failed: %s" % str(leave_result.get_exception()))
+			return
 		party_id = ""
 	var joined_match = await socket.join_matched_async(matched)
 	if joined_match.is_exception():
@@ -244,13 +321,19 @@ func _on_socket_closed() -> void:
 	if reconnecting or session == null:
 		return
 	reconnecting = true
-	var was_matchmaking := not matchmaker_ticket.is_empty()
+	restore_party_id = party_id
+	restore_matchmaking = not matchmaker_ticket.is_empty()
+	party_id = ""
+	matchmaker_ticket = ""
 	status_changed.emit("Reconnecting")
 	while reconnecting:
 		await get_tree().create_timer(1.5).timeout
 		await _connect_socket()
 		if socket != null and socket.is_connected_to_host():
-			if was_matchmaking:
-				matchmaker_ticket = ""
+			if not restore_party_id.is_empty():
+				await join_room(restore_party_id)
+			if restore_matchmaking and not party_id.is_empty():
 				await start_room_matchmaking()
+			restore_party_id = ""
+			restore_matchmaking = false
 			reconnecting = false

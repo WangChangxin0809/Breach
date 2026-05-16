@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"breach3v3/server/modules/config"
@@ -63,23 +64,48 @@ func rpcCreateMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 }
 
 func matchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
-	partyGroups := make(map[string]interface{})
+	partyUsers := make(map[string][]string)
 	for _, entry := range entries {
 		partyID := entry.GetPartyId()
 		userID := entry.GetPresence().GetUserId()
-		existing, _ := partyGroups[partyID].([]interface{})
-		partyGroups[partyID] = append(existing, userID)
+		if partyID == "" {
+			partyID = "solo:" + userID
+		}
+		partyUsers[partyID] = append(partyUsers[partyID], userID)
 	}
-	params := map[string]interface{}{
-		"party_groups": partyGroups,
-	}
+	params := matchParamsForPartyGroups(partyUsers)
 	matchID, err := nk.MatchCreate(ctx, config.MATCH_MODULE_NAME, params)
 	if err != nil {
 		logger.Error("failed to create authoritative match for matchmaker entries=%d err=%v", len(entries), err)
 		return "", err
 	}
-	logger.Info("matchmaker created authoritative match id=%s entries=%d parties=%d", matchID, len(entries), len(partyGroups))
+	logger.Info("matchmaker created authoritative match id=%s entries=%d parties=%d", matchID, len(entries), len(partyUsers))
 	return matchID, nil
+}
+
+func matchParamsForPartyGroups(partyUsers map[string][]string) map[string]interface{} {
+	partyGroups := make(map[string]interface{}, len(partyUsers))
+	partyIDs := make([]string, 0, len(partyUsers))
+	for partyID := range partyUsers {
+		partyIDs = append(partyIDs, partyID)
+	}
+	sort.Strings(partyIDs)
+	for _, partyID := range partyIDs {
+		userIDs := append([]string(nil), partyUsers[partyID]...)
+		sort.Strings(userIDs)
+		users := make([]interface{}, 0, len(userIDs))
+		for _, userID := range userIDs {
+			if userID != "" {
+				users = append(users, userID)
+			}
+		}
+		if len(users) > 0 {
+			partyGroups[partyID] = users
+		}
+	}
+	return map[string]interface{}{
+		"party_groups": partyGroups,
+	}
 }
 
 func newMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) (runtime.Match, error) {
@@ -131,6 +157,7 @@ func (m *BreachMatch) MatchJoin(ctx context.Context, logger runtime.Logger, db *
 	for _, presence := range presences {
 		player, exists := current.Players[presence.GetUserId()]
 		if !exists {
+			current.AssignHost(presence.GetUserId())
 			faction := current.AssignFaction(presence.GetUserId())
 			spawn := spawnPoint(faction, len(current.Players))
 			player = &state.Player{
@@ -426,8 +453,10 @@ func processRoomStartMatch(logger runtime.Logger, dispatcher runtime.MatchDispat
 	if !ok || !player.Connected {
 		return
 	}
-	sorted := current.SortedPlayers()
-	if len(sorted) == 0 || sorted[0].UserID != player.UserID {
+	if current.HostUserID == "" {
+		current.HostUserID = player.UserID
+	}
+	if current.HostUserID != player.UserID {
 		logger.Warn("room start rejected: not host user_id=%s", player.UserID)
 		return
 	}
@@ -437,7 +466,16 @@ func processRoomStartMatch(logger runtime.Logger, dispatcher runtime.MatchDispat
 			return
 		}
 	}
-	gameMatchID, err := nk.MatchCreate(context.Background(), config.MATCH_MODULE_NAME, map[string]interface{}{})
+	userIDs := make([]string, 0, len(current.Players))
+	for _, p := range current.SortedPlayers() {
+		if p.Connected {
+			userIDs = append(userIDs, p.UserID)
+		}
+	}
+	params := matchParamsForPartyGroups(map[string][]string{
+		"room:" + player.UserID: userIDs,
+	})
+	gameMatchID, err := nk.MatchCreate(context.Background(), config.MATCH_MODULE_NAME, params)
 	if err != nil {
 		logger.Error("failed to create game match from room: %v", err)
 		return

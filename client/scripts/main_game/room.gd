@@ -61,13 +61,22 @@ func _connect_invite_buttons() -> void:
 
 func _connect_network_signals() -> void:
 	var network := AuthManager.network
-	network.connected_to_match.connect(_on_connected_to_match)
-	network.room_joined.connect(_on_room_joined)
-	network.room_presences_received.connect(_on_room_presences_received)
-	network.room_presence_changed.connect(_on_room_presence_changed)
-	network.room_data_received.connect(_on_room_data_received)
-	network.room_closed.connect(_on_room_closed)
-	network.status_changed.connect(_on_network_status_changed)
+	if not network.connected_to_match.is_connected(_on_connected_to_match):
+		network.connected_to_match.connect(_on_connected_to_match)
+	if not network.room_joined.is_connected(_on_room_joined):
+		network.room_joined.connect(_on_room_joined)
+	if not network.room_join_failed.is_connected(_on_room_join_failed):
+		network.room_join_failed.connect(_on_room_join_failed)
+	if not network.room_presences_received.is_connected(_on_room_presences_received):
+		network.room_presences_received.connect(_on_room_presences_received)
+	if not network.room_presence_changed.is_connected(_on_room_presence_changed):
+		network.room_presence_changed.connect(_on_room_presence_changed)
+	if not network.room_data_received.is_connected(_on_room_data_received):
+		network.room_data_received.connect(_on_room_data_received)
+	if not network.room_closed.is_connected(_on_room_closed):
+		network.room_closed.connect(_on_room_closed)
+	if not network.status_changed.is_connected(_on_network_status_changed):
+		network.status_changed.connect(_on_network_status_changed)
 
 
 func _create_room() -> void:
@@ -76,6 +85,10 @@ func _create_room() -> void:
 
 
 func _setup_join_mode() -> void:
+	if not AuthManager.network.party_id.is_empty():
+		Room.join_target = ""
+		_on_room_joined(AuthManager.network.party_id)
+		return
 	if not join_target.is_empty():
 		var code := join_target
 		join_target = ""
@@ -92,14 +105,35 @@ func _on_room_joined(pid: String) -> void:
 	status_label.text = "已进入房间，等待成员加入"
 
 
-func _on_room_presences_received(_new_presences: Array, new_leader_id: String) -> void:
-	push_warning("[UI] presences_received leader=%s" % new_leader_id)
+func _on_room_join_failed(message: String) -> void:
+	if mode != Mode.JOIN:
+		status_label.text = message
+		return
+	Room.mode = Mode.CREATE
+	Room.join_target = ""
+	status_label.text = message
+	await get_tree().create_timer(1.0).timeout
+	get_tree().change_scene_to_file(LOBBY_SCENE)
+
+
+func _on_room_presences_received(new_presences: Array, new_leader_id: String) -> void:
+	print("[UI] presences_received leader=%s" % new_leader_id)
 	leader_id = new_leader_id
+	for presence in new_presences:
+		_upsert_presence(presence)
+	_refresh_slots()
+	_update_buttons()
 
 
-func _on_room_presence_changed(joins: Array, _leaves: Array) -> void:
+func _on_room_presence_changed(joins: Array, leaves: Array) -> void:
+	for presence in joins:
+		_upsert_presence(presence)
+	for presence in leaves:
+		_remove_presence(presence)
 	if not joins.is_empty():
 		AuthManager.network.send_room_ready(is_ready, leader_id)
+	_refresh_slots()
+	_update_buttons()
 
 
 func _on_room_data_received(op_code: int, sender_id: String, data: String) -> void:
@@ -128,10 +162,10 @@ func _on_room_data_received(op_code: int, sender_id: String, data: String) -> vo
 	_upsert_member(sender_id, username)
 	var broadcast_leader: String = str(parsed.get("leader_id", ""))
 	if not broadcast_leader.is_empty() and broadcast_leader != leader_id:
-		push_warning("[UI] leader updated from=%s to=%s by=%s" % [leader_id, broadcast_leader, username])
+		print("[UI] leader updated from=%s to=%s by=%s" % [leader_id, broadcast_leader, username])
 		leader_id = broadcast_leader
 	if not member_ready and room_state == State.MATCHMAKING:
-		push_warning("[LOG] remote unready triggers cancel sender=%s" % sender_id)
+		print("[LOG] remote unready triggers cancel sender=%s" % sender_id)
 		_enter_state(State.LOBBY)
 		status_label.text = username + " 取消了准备，匹配退出"
 		AuthManager.network.cancel_matchmaking()
@@ -141,11 +175,35 @@ func _on_room_data_received(op_code: int, sender_id: String, data: String) -> vo
 
 
 func _upsert_member(user_id: String, username: String) -> void:
+	if user_id == AuthManager.network.user_id:
+		return
 	for i in range(members.size()):
 		if members[i].get("user_id", "") == user_id:
 			members[i]["username"] = username
 			return
 	members.append({"user_id": user_id, "username": username})
+
+
+func _upsert_presence(presence) -> void:
+	if presence == null:
+		return
+	var presence_user_id: String = str(presence.user_id)
+	if presence_user_id.is_empty() or presence_user_id == AuthManager.network.user_id:
+		return
+	var username: String = str(presence.username)
+	if username.is_empty():
+		username = presence_user_id
+	_upsert_member(presence_user_id, username)
+
+
+func _remove_presence(presence) -> void:
+	if presence == null:
+		return
+	var presence_user_id: String = str(presence.user_id)
+	for i in range(members.size() - 1, -1, -1):
+		if members[i].get("user_id", "") == presence_user_id:
+			members.remove_at(i)
+	remote_ready_states.erase(presence_user_id)
 
 
 func _on_room_closed() -> void:
@@ -162,8 +220,8 @@ func _on_copy_room_pressed() -> void:
 
 
 func _refresh_slots() -> void:
-	push_warning("[UI] _refresh_slots my_id=%s leader=%s members=%d" % [AuthManager.network.user_id, leader_id, members.size()])
-	party_title_label.text = "小队 %d/%d" % [members.size() + 1, Config.PARTY_MAX_SIZE]
+	var player_count: int = mini(Config.PARTY_MAX_SIZE, members.size() + 1)
+	party_title_label.text = "小队 %d/%d" % [player_count, Config.PARTY_MAX_SIZE]
 	_refresh_local_slot(slots[0])
 	for index: int in range(1, slots.size()):
 		var remote_index: int = index - 1
@@ -211,7 +269,7 @@ func _refresh_remote_slot(slot: PanelContainer, member: Dictionary) -> void:
 		name_label.add_theme_color_override("font_color", COLOR_MUTED)
 		role_label.text = ""
 		status_label_node.text = ""
-		invite_button.visible = true
+		invite_button.visible = members.size() + 1 < Config.PARTY_MAX_SIZE
 		return
 
 	var user_id: String = member.get("user_id", "")
@@ -260,7 +318,7 @@ func _enter_state(new_state: State) -> void:
 
 func _on_ready_pressed() -> void:
 	is_ready = not is_ready
-	push_warning("[LOG] ready pressed is_ready=%s room_state=%d" % [str(is_ready), room_state])
+	print("[LOG] ready pressed is_ready=%s room_state=%d" % [str(is_ready), room_state])
 	AuthManager.network.send_room_ready(is_ready, leader_id)
 	if not is_ready and room_state == State.MATCHMAKING:
 		_cancel_matchmaking()
@@ -270,7 +328,7 @@ func _on_ready_pressed() -> void:
 
 
 func _on_start_match_pressed() -> void:
-	push_warning("[LOG] start_match pressed room_state=%d" % room_state)
+	print("[LOG] start_match pressed room_state=%d" % room_state)
 	if room_state != State.LOBBY:
 		return
 	start_match_button.disabled = true
@@ -281,7 +339,7 @@ func _on_start_match_pressed() -> void:
 
 
 func _cancel_matchmaking() -> void:
-	push_warning("[LOG] cancel_matchmaking room_state=%d" % room_state)
+	print("[LOG] cancel_matchmaking room_state=%d" % room_state)
 	_enter_state(State.LOBBY)
 	status_label.text = "匹配已取消"
 	AuthManager.network.send_room_matchmaking(false)

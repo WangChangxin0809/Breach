@@ -8,6 +8,58 @@ import (
 	"breach3v3/server/modules/state"
 )
 
+func TestAssignHostKeepsFirstJoinerAsHost(t *testing.T) {
+	matchState := state.NewMatchState()
+	first := matchState.AssignHost("z-user")
+	second := matchState.AssignHost("a-user")
+
+	if first != "z-user" || second != "z-user" || matchState.HostUserID != "z-user" {
+		t.Fatalf("expected first joiner to remain host, got first=%q second=%q stored=%q", first, second, matchState.HostUserID)
+	}
+}
+
+func TestMatchParamsForPartyGroupsIsDeterministic(t *testing.T) {
+	params := matchParamsForPartyGroups(map[string][]string{
+		"room:z": {"user-c", "user-a", "user-b"},
+	})
+
+	groups, ok := params["party_groups"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected party_groups param, got %#v", params["party_groups"])
+	}
+	users, ok := groups["room:z"].([]interface{})
+	if !ok {
+		t.Fatalf("expected room party users, got %#v", groups["room:z"])
+	}
+	got := make([]string, 0, len(users))
+	for _, user := range users {
+		got = append(got, user.(string))
+	}
+	want := []string{"user-a", "user-b", "user-c"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected deterministic party users %v, got %v", want, got)
+		}
+	}
+}
+
+func TestRoomPartyMembersStayOnSameFaction(t *testing.T) {
+	matchState := state.NewMatchState()
+	matchState.UserParty["user-a"] = "room:alpha"
+	matchState.UserParty["user-b"] = "room:alpha"
+	matchState.UserParty["user-c"] = "room:alpha"
+
+	first := matchState.AssignFaction("user-a")
+	matchState.Players["user-a"] = &state.Player{UserID: "user-a", Faction: first}
+	second := matchState.AssignFaction("user-b")
+	matchState.Players["user-b"] = &state.Player{UserID: "user-b", Faction: second}
+	third := matchState.AssignFaction("user-c")
+
+	if first != second || second != third {
+		t.Fatalf("expected room party to stay on one faction, got %d %d %d", first, second, third)
+	}
+}
+
 func TestBuildGameStateFiltersPlayersByViewerVision(t *testing.T) {
 	viewer := &state.Player{
 		UserID:      "viewer",

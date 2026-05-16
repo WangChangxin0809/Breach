@@ -21,7 +21,16 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	confirm_button.pressed.connect(_on_confirm_pressed)
 	cancel_button.pressed.connect(_on_cancel_pressed)
+	AuthManager.network.room_joined.connect(_on_room_joined)
+	AuthManager.network.room_join_failed.connect(_on_room_join_failed)
 	_update_account_label()
+
+
+func _exit_tree() -> void:
+	if AuthManager.network.room_joined.is_connected(_on_room_joined):
+		AuthManager.network.room_joined.disconnect(_on_room_joined)
+	if AuthManager.network.room_join_failed.is_connected(_on_room_join_failed):
+		AuthManager.network.room_join_failed.disconnect(_on_room_join_failed)
 
 
 func _update_account_label() -> void:
@@ -59,7 +68,27 @@ func _on_confirm_pressed() -> void:
 		return
 	Room.mode = Room.Mode.JOIN
 	Room.join_target = entered
+	confirm_button.disabled = true
+	cancel_button.disabled = true
+	join_status_label.text = "正在加入房间..."
+	AuthManager.network.join_room(entered)
+
+
+func _on_room_joined(_party_id: String) -> void:
+	if Room.mode != Room.Mode.JOIN:
+		return
 	get_tree().change_scene_to_file(ROOM_SCENE)
+
+
+func _on_room_join_failed(message: String) -> void:
+	if Room.mode != Room.Mode.JOIN:
+		return
+	Room.mode = Room.Mode.CREATE
+	Room.join_target = ""
+	confirm_button.disabled = false
+	cancel_button.disabled = false
+	join_status_label.text = message
+	status_label.text = message
 
 
 func _on_cancel_pressed() -> void:

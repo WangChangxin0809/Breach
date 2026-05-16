@@ -24,6 +24,7 @@ type MatchState struct {
 	RoundEnded   time.Time
 	TickRate     int
 	GameMatchID  string
+	HostUserID   string
 	PartyFaction map[string]Faction
 	UserParty    map[string]string
 	PartySize    map[string]int
@@ -70,6 +71,13 @@ func (s *MatchState) SortedPlayers() []*Player {
 		return players[i].UserID < players[j].UserID
 	})
 	return players
+}
+
+func (s *MatchState) AssignHost(userID string) string {
+	if s.HostUserID == "" {
+		s.HostUserID = userID
+	}
+	return s.HostUserID
 }
 
 func (s *MatchState) AssignFaction(userID string) Faction {
