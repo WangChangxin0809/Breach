@@ -241,6 +241,23 @@ func processMove(logger runtime.Logger, dispatcher runtime.MatchDispatcher, curr
 }
 
 func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState, tick int64, now time.Time) error {
+	var lastErr error
+	for _, presence := range current.ActivePresences() {
+		viewer := current.Players[presence.GetUserId()]
+		snapshot := buildGameState(current, tick, now, viewer)
+		data, err := proto.Marshal(snapshot)
+		if err != nil {
+			return fmt.Errorf("marshal game state: %w", err)
+		}
+		if err := dispatcher.BroadcastMessage(OpCodeGameState, data, []runtime.Presence{presence}, nil, false); err != nil {
+			logger.Error("failed to broadcast game state user_id=%s err=%v", presence.GetUserId(), err)
+			lastErr = err
+		}
+	}
+	return lastErr
+}
+
+func buildGameState(current *state.MatchState, tick int64, now time.Time, viewer *state.Player) *gamepb.GameState {
 	snapshot := &gamepb.GameState{
 		Version:            gamepb.PROTOCOL_VERSION,
 		Tick:               uint64(tick),
@@ -249,6 +266,9 @@ func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatche
 		Players:            make([]*gamepb.PlayerState, 0, len(current.Players)),
 	}
 	for _, player := range current.SortedPlayers() {
+		if !shouldIncludePlayerInSnapshot(viewer, player) {
+			continue
+		}
 		snapshot.Players = append(snapshot.Players, &gamepb.PlayerState{
 			UserId:      player.UserID,
 			DisplayName: player.DisplayName,
@@ -266,12 +286,17 @@ func broadcastGameState(logger runtime.Logger, dispatcher runtime.MatchDispatche
 			Connected: player.Connected,
 		})
 	}
+	return snapshot
+}
 
-	data, err := proto.Marshal(snapshot)
-	if err != nil {
-		return fmt.Errorf("marshal game state: %w", err)
+func shouldIncludePlayerInSnapshot(viewer *state.Player, player *state.Player) bool {
+	if viewer == nil || player == nil {
+		return false
 	}
-	return dispatcher.BroadcastMessage(OpCodeGameState, data, current.ActivePresences(), nil, false)
+	if viewer.UserID == player.UserID {
+		return true
+	}
+	return systems.CanPlayerSee(viewer, player, config.Active())
 }
 
 func broadcastCharacterSelectState(logger runtime.Logger, dispatcher runtime.MatchDispatcher, current *state.MatchState) error {
