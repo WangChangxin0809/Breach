@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://b4y6weeplw47q" path="res://scripts/characters/enemy/TentacleEnemy.gd" id="11_utiah"]
 [ext_resource type="Shader" uid="uid://c35xjyfnwwi1d" path="res://assets/shader/moving_uv.gdshader" id="12_notue"]
 [ext_resource type="Texture2D" uid="uid://coj2l31ql7b4o" path="res://assets/spiritframes/01.png" id="13_q10uu"]
+[ext_resource type="PackedScene" path="res://scenes/characters/player_character.tscn" id="15_player_character"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_fxgxy"]
 resource_name = "01"
@@ -480,64 +481,9 @@ scale = Vector2(0.18940973, 0.23107049)
 texture = ExtResource("1_nnx5r")
 polygon = PackedVector2Array(-1398.6144, -907, 478.06754, -943, 511.28314, 589, -384.70068, 585.27014, -1410.4772, 581)
 
-[node name="Player" type="CharacterBody2D" parent="." unique_id=772553087 groups=["Player"]]
+[node name="Player" parent="." unique_id=772553087 instance=ExtResource("15_player_character")]
 y_sort_enabled = true
 position = Vector2(-397, 0)
-scale = Vector2(1.2, 1.2)
-motion_mode = 1
-script = ExtResource("1_empo7")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=122383004]
-y_sort_enabled = true
-position = Vector2(0, -19.8)
-scale = Vector2(1.325, 1.32)
-shape = SubResource("CapsuleShape2D_xhdw7")
-
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player" unique_id=1734072076]
-y_sort_enabled = true
-texture_filter = 1
-position = Vector2(0, -21)
-sprite_frames = SubResource("SpriteFrames_4homf")
-animation = &"Run"
-flip_h = true
-
-[node name="PointLight2D2" type="PointLight2D" parent="Player" unique_id=559341765]
-y_sort_enabled = true
-position = Vector2(0, -18.333332)
-energy = 0.5
-shadow_enabled = true
-texture = SubResource("GradientTexture2D_4homf")
-
-[node name="WeaponPivot" type="Node2D" parent="Player" unique_id=1717204200]
-y_sort_enabled = true
-position = Vector2(0, -12)
-
-[node name="WeaponSprite" type="Sprite2D" parent="Player/WeaponPivot" unique_id=541549263]
-y_sort_enabled = true
-texture_filter = 1
-position = Vector2(11, 1)
-texture = ExtResource("5_5uk4j")
-flip_h = true
-
-[node name="PointLight2D" type="PointLight2D" parent="Player/WeaponPivot" unique_id=1513359479]
-y_sort_enabled = true
-texture_filter = 1
-position = Vector2(7.4999995, 0.33333325)
-scale = Vector2(0.5, 0.5)
-color = Color(1, 0.896, 0.88, 1)
-shadow_enabled = true
-shadow_filter = 1
-texture = ExtResource("6_bl28q")
-offset = Vector2(163.855, -9.495)
-
-[node name="Camera2D" type="Camera2D" parent="Player" unique_id=752909453]
-position = Vector2(-1, -23)
-zoom = Vector2(2, 2)
-position_smoothing_enabled = true
-position_smoothing_speed = 1.0
-rotation_smoothing_enabled = true
-rotation_smoothing_speed = 1.0
-script = ExtResource("6_fxgxy")
 
 [node name="Player_02" type="RigidBody2D" parent="." unique_id=1205701055]
 y_sort_enabled = true

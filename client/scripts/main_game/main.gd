@@ -376,16 +376,21 @@ func _create_player_visual(player_id: String) -> Node2D:
 	return visual
 
 func _prepare_player_visual(visual: Node2D) -> void:
-	if visual.get_script() != null:
-		visual.set_script(null)
 	visual.remove_from_group("Player")
+	_set_object_property_if_present(visual, "local_movement_enabled", false)
 	_disable_visual_collisions(visual)
 	_remove_visual_cameras(visual)
 	_ensure_health_bar(visual)
 
 	var weapon_pivot := visual.get_node_or_null("WeaponPivot") as Node2D
-	if weapon_pivot:
+	if weapon_pivot and not weapon_pivot.has_method("set_facing"):
 		weapon_pivot.set_meta("base_x_offset", absf(weapon_pivot.position.x))
+
+func _set_object_property_if_present(object: Object, property_name: String, value: Variant) -> void:
+	for property in object.get_property_list():
+		if str(property.get("name", "")) == property_name:
+			object.set(property_name, value)
+			return
 
 func _disable_visual_collisions(node: Node) -> void:
 	if node is CollisionObject2D:
@@ -514,6 +519,9 @@ func _local_facing_vector() -> Vector2:
 func _apply_visual_facing(visual: Node2D, facing: Vector2) -> void:
 	if facing.length_squared() <= 0.001:
 		return
+	if visual.has_method("set_facing"):
+		visual.call("set_facing", facing)
+		return
 
 	var sprite := visual.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	var weapon_pivot := visual.get_node_or_null("WeaponPivot") as Node2D
@@ -532,6 +540,10 @@ func _apply_visual_facing(visual: Node2D, facing: Vector2) -> void:
 		weapon_pivot.rotation = facing.angle()
 
 func _apply_visual_animation(visual: Node2D, moving: bool) -> void:
+	if visual.has_method("set_moving"):
+		visual.call("set_moving", moving)
+		return
+
 	var sprite := visual.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	if sprite == null or sprite.sprite_frames == null:
 		return
@@ -552,14 +564,24 @@ func _apply_visual_faction(visual: Node2D, faction: int, is_local: bool, health:
 	if health <= 0:
 		body_color = Color(0.55, 0.55, 0.55, 0.48)
 
-	var sprite := visual.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if sprite:
-		sprite.modulate = body_color
+	if visual.has_method("set_body_modulate"):
+		visual.call("set_body_modulate", body_color)
+	else:
+		var sprite := visual.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+		if sprite:
+			sprite.modulate = body_color
+
+	var light_color := _faction_light_color(faction)
+	if visual.has_method("set_light_color"):
+		visual.call("set_light_color", light_color)
+		return
+	if visual.has_method("set_weapon_light_color"):
+		visual.call("set_weapon_light_color", light_color)
 
 	for raw_light in visual.find_children("*", "PointLight2D", true, false):
 		var light := raw_light as PointLight2D
 		if light:
-			light.color = _faction_light_color(faction)
+			light.color = light_color
 
 func _apply_visual_health(visual: Node2D, health: int) -> void:
 	var ratio := clampf(float(health) / 100.0, 0.0, 1.0)
@@ -569,6 +591,10 @@ func _apply_visual_health(visual: Node2D, health: int) -> void:
 		fill.default_color = Color(0.1, 0.85, 0.3, 1.0) if ratio > 0.3 else Color(0.92, 0.23, 0.18, 1.0)
 
 func _set_visual_lights_visible(visual: Node2D, enabled: bool) -> void:
+	if visual.has_method("set_lights_visible"):
+		visual.call("set_lights_visible", enabled)
+		return
+
 	for raw_light in visual.find_children("*", "PointLight2D", true, false):
 		var light := raw_light as PointLight2D
 		if light:

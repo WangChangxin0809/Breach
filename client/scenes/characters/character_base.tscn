@@ -39,8 +39,9 @@ animations = [{
 "speed": 6.0
 }]
 
-[node name="CharacterBase" type="Node2D" unique_id=1735436243]
+[node name="CharacterBase" type="CharacterBody2D" unique_id=1735436243]
 script = ExtResource("1")
+idle_animation = &"idle"
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1505457367]
 sprite_frames = SubResource("SpriteFrames_05y10")
