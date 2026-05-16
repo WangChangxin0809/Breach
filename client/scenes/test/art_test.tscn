@@ -574,6 +574,9 @@ flip_h = true
 
 [node name="VisionBlockerHighCrate" type="StaticBody2D" parent="." unique_id=2000193460]
 position = Vector2(160, 48)
+metadata/export_to_server = true
+metadata/blocks_movement = true
+metadata/blocks_vision = true
 
 [node name="Visual" type="ColorRect" parent="VisionBlockerHighCrate" unique_id=624122286]
 offset_left = -48.0
@@ -590,6 +593,9 @@ occluder = SubResource("OccluderPolygon2D_high_crate")
 
 [node name="LowCoverCrate" type="StaticBody2D" parent="." unique_id=956402268]
 position = Vector2(160, 168)
+metadata/export_to_server = true
+metadata/blocks_movement = true
+metadata/blocks_vision = false
 
 [node name="Visual" type="ColorRect" parent="LowCoverCrate" unique_id=84078810]
 offset_left = -56.0
@@ -607,6 +613,9 @@ color = Color(0.17399749, 0.5278864, 0.60377836, 1)
 [node name="物体" type="Node2D" parent="." unique_id=519258392]
 y_sort_enabled = true
 position = Vector2(-167, -131)
+metadata/export_to_server = true
+metadata/blocks_movement = true
+metadata/blocks_vision = true
 
 [node name="Sprite2D2" type="Sprite2D" parent="物体" unique_id=1299530673]
 y_sort_enabled = true

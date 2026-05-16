@@ -1,13 +1,16 @@
-extends Node
+extends SceneTree
 
 const MAIN_SCENE := preload("res://scenes/main_game/main.tscn")
 
 var main_scene: Node
 
-func _ready() -> void:
+func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
 	main_scene = MAIN_SCENE.instantiate()
-	add_child(main_scene)
-	await get_tree().process_frame
+	root.add_child(main_scene)
+	await process_frame
 
 	main_scene.call("_on_authenticated", "local-user", "local")
 	main_scene.call("_on_connected_to_match", "probe-match", "local-user")
@@ -41,18 +44,18 @@ func _ready() -> void:
 
 	if absf(right_rotation - up_rotation) < 0.5:
 		push_error("remote weapon rotation did not follow direction")
-		get_tree().quit(1)
+		quit(1)
 		return
 	if right_lights != 0 or up_lights != 0:
 		push_error("remote lights should stay hidden")
-		get_tree().quit(1)
+		quit(1)
 		return
 	if run_animation != "Run" or held_animation != "Run":
 		push_error("remote movement animation did not stay in Run between authoritative states")
-		get_tree().quit(1)
+		quit(1)
 		return
 
-	get_tree().quit(0)
+	quit(0)
 
 func _apply_state(remote_direction: Vector2, remote_position := Vector2(220.0, 180.0)) -> void:
 	var bytes := PackedByteArray()
@@ -64,7 +67,7 @@ func _apply_state(remote_direction: Vector2, remote_position := Vector2(220.0, 1
 		"local-user",
 		"local",
 		Config.FACTION_ATTACKERS,
-		Vector2(120.0, 180.0),
+		Vector2(320.0, 120.0),
 		Vector2.RIGHT
 	))
 	ProtobufCodec._write_message_field(bytes, 5, _encoded_player_state(
@@ -79,7 +82,7 @@ func _apply_state(remote_direction: Vector2, remote_position := Vector2(220.0, 1
 	for player in state["players"]:
 		if player["user_id"] == "remote-user" and not bool(player.get("has_direction", false)):
 			push_error("decoded remote state is missing direction")
-			get_tree().quit(1)
+			quit(1)
 			return
 	main_scene.call("_on_authoritative_state", state)
 

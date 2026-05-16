@@ -24,6 +24,7 @@ const MAP_SIZE := Vector2(1600.0, 960.0)
 const VISION_RADIUS := 180.0       # 圆形视野半径，不看朝向
 const VISION_CONE := 420.0         # 锥形视野最大距离
 const VISION_CONE_HALF_ANGLE := 0.5235987756  # 锥形半角 30°
+const MAP_GEOMETRY_PATH := "res://data/maps/dev_map_collision.json"
 
 const FACTION_ATTACKERS := 1
 const FACTION_DEFENDERS := 2

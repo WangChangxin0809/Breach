@@ -17,7 +17,8 @@ var reconnecting := false
 var matchmaker_ticket := ""
 
 func _ready() -> void:
-	client = Nakama.create_client(Config.SERVER_KEY, Config.SERVER_HOST, Config.SERVER_PORT, "http")
+	var nakama := get_node("/root/Nakama")
+	client = nakama.create_client(Config.SERVER_KEY, Config.SERVER_HOST, Config.SERVER_PORT, "http")
 
 func login(email: String, password: String) -> void:
 	status_changed.emit("Authenticating")
@@ -75,7 +76,8 @@ func send_character_select(character_id: String) -> void:
 
 func _connect_socket() -> void:
 	status_changed.emit("Connecting socket")
-	socket = Nakama.create_socket_from(client)
+	var nakama := get_node("/root/Nakama")
+	socket = nakama.create_socket_from(client)
 	socket.received_match_state.connect(_on_match_state)
 	socket.received_matchmaker_matched.connect(_on_matchmaker_matched)
 	socket.closed.connect(_on_socket_closed)

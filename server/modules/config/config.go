@@ -48,11 +48,12 @@ type MatchConfig struct {
 }
 
 type MapConfig struct {
-	Width           float64                     `json:"width"`
-	Height          float64                     `json:"height"`
-	SolidObstacles  []Rect                      `json:"solid_obstacles,omitempty"`
-	CollisionShapes []CollisionShape            `json:"collision_shapes,omitempty"`
-	SpawnPoints     map[string][]MapPoint       `json:"spawn_points,omitempty"`
+	Width           float64               `json:"width"`
+	Height          float64               `json:"height"`
+	Obstacles       []CollisionShape      `json:"obstacles,omitempty"`
+	SolidObstacles  []Rect                `json:"solid_obstacles,omitempty"`
+	CollisionShapes []CollisionShape      `json:"collision_shapes,omitempty"`
+	SpawnPoints     map[string][]MapPoint `json:"spawn_points,omitempty"`
 }
 
 type Rect struct {
@@ -68,18 +69,20 @@ type MapPoint struct {
 }
 
 type CollisionShape struct {
-	ID         string     `json:"id,omitempty"`
-	Name       string     `json:"name,omitempty"`
-	SourcePath string     `json:"source_path,omitempty"`
-	Type       string     `json:"type"`
-	X          float64    `json:"x,omitempty"`
-	Y          float64    `json:"y,omitempty"`
-	W          float64    `json:"w,omitempty"`
-	H          float64    `json:"h,omitempty"`
-	Radius     float64    `json:"radius,omitempty"`
-	A          *MapPoint  `json:"a,omitempty"`
-	B          *MapPoint  `json:"b,omitempty"`
-	Points     []MapPoint `json:"points,omitempty"`
+	ID             string     `json:"id,omitempty"`
+	Name           string     `json:"name,omitempty"`
+	SourcePath     string     `json:"source_path,omitempty"`
+	Type           string     `json:"type"`
+	X              float64    `json:"x,omitempty"`
+	Y              float64    `json:"y,omitempty"`
+	W              float64    `json:"w,omitempty"`
+	H              float64    `json:"h,omitempty"`
+	Radius         float64    `json:"radius,omitempty"`
+	A              *MapPoint  `json:"a,omitempty"`
+	B              *MapPoint  `json:"b,omitempty"`
+	Points         []MapPoint `json:"points,omitempty"`
+	BlocksMovement bool       `json:"blocks_movement,omitempty"`
+	BlocksVision   bool       `json:"blocks_vision,omitempty"`
 }
 
 type CharacterConfig struct {
@@ -254,6 +257,14 @@ func (c *GameConfig) Validate() error {
 	for i, shape := range c.Map.CollisionShapes {
 		if err := validateCollisionShape(c.Map, shape); err != nil {
 			return fmt.Errorf("map collision_shapes[%d]: %w", i, err)
+		}
+	}
+	for i, obstacle := range c.Map.Obstacles {
+		if err := validateCollisionShape(c.Map, obstacle); err != nil {
+			return fmt.Errorf("map obstacles[%d]: %w", i, err)
+		}
+		if !obstacle.BlocksMovement && !obstacle.BlocksVision {
+			return fmt.Errorf("map obstacles[%d] must block movement or vision", i)
 		}
 	}
 	for faction, points := range c.Map.SpawnPoints {

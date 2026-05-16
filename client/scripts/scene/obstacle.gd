@@ -1,5 +1,9 @@
 extends StaticBody2D  # 假设你的“障碍”节点是 StaticBody2D
 
+@export var export_to_server := true
+@export var blocks_movement := true
+@export var blocks_vision := true
+
 func _ready():
 	# 遍历“障碍”节点下的所有子节点
 	for child in get_children():
@@ -7,6 +11,7 @@ func _ready():
 		if child is Polygon2D:
 			# 1. 在内存中动态新建一个碰撞多边形节点
 			var collision = CollisionPolygon2D.new()
+			collision.name = "%sCollision" % child.name
 			
 			# 2. 把画好的图形数据复制给它
 			collision.polygon = child.polygon

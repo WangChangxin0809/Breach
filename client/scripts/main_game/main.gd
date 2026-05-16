@@ -3,6 +3,7 @@ extends Node2D
 const ART_TEST_SCENE := preload("res://scenes/test/art_test.tscn")
 const LOCAL_PREVIEW_ID := "__local_preview"
 const NETWORK_PLAYERS_ROOT_NAME := "NetworkPlayers"
+const GENERATED_OCCLUDERS_ROOT_NAME := "GeneratedVisionOccluders"
 const HEALTH_BAR_WIDTH := 44.0
 const HEALTH_BAR_HEIGHT := 5.0
 const HEALTH_BAR_OFFSET := Vector2(-22.0, -58.0)
@@ -11,6 +12,8 @@ const DEFENDER_COLOR := Color(1.0, 0.42, 0.27, 1.0)
 const ATTACKER_LIGHT_COLOR := Color(0.44, 0.72, 1.0, 1.0)
 const DEFENDER_LIGHT_COLOR := Color(1.0, 0.48, 0.28, 1.0)
 const REMOTE_MOVEMENT_ANIMATION_HOLD_MS := 160
+const CIRCLE_OCCLUDER_SEGMENTS := 16
+const CAPSULE_OCCLUDER_HALF_SEGMENTS := 8
 
 var network: NetworkClient
 var players: Dictionary = {}
@@ -18,9 +21,11 @@ var player_visuals: Dictionary = {}
 var previous_player_positions: Dictionary = {}
 var player_visual_directions: Dictionary = {}
 var player_visual_moving_until_ms: Dictionary = {}
+var movement_obstacles: Array[Dictionary] = []
+var vision_obstacles: Array[Dictionary] = []
 var my_user_id := ""
 var my_match_id := ""
-var local_position := Vector2(120.0, 180.0)
+var local_position := Vector2(320.0, 120.0)
 var client_tick := 0
 var idle_heartbeat := 0
 var latest_round_state := Config.ROUND_WAITING
@@ -33,6 +38,7 @@ var mouse_world_position := Vector2.ZERO
 var art_world: Node2D
 var player_template: Node2D
 var network_players_root: Node2D
+var generated_vision_occluders: Node2D
 var vision_overlay: Node2D
 var vision_cone: Polygon2D
 var vision_radius: Polygon2D
@@ -45,18 +51,21 @@ var round_label: Label
 var player_list: Label
 
 func _ready() -> void:
-	network = AuthManager.network
+	var auth_manager := get_node("/root/AuthManager")
+	network = auth_manager.network
 	network.authenticated.connect(_on_authenticated)
 	network.connected_to_match.connect(_on_connected_to_match)
 	network.authoritative_state_received.connect(_on_authoritative_state)
 	network.status_changed.connect(_on_status_changed)
 	_setup_input_actions()
 	_setup_art_world()
+	_load_map_geometry()
+	_sync_generated_vision_occluders()
 	_setup_vision_overlay()
 	_setup_world_camera()
 	_setup_ui()
-	if AuthManager.is_logged_in():
-		_on_authenticated(AuthManager.user_id, AuthManager.username)
+	if auth_manager.is_logged_in():
+		_on_authenticated(auth_manager.user_id, auth_manager.username)
 	if not network.match_id.is_empty():
 		_on_connected_to_match(network.match_id, network.user_id)
 	_on_status_changed("已进入战局")
@@ -592,17 +601,10 @@ func _is_valid_local_position(position: Vector2) -> bool:
 		return false
 	if position.x > Config.MAP_SIZE.x - radius or position.y > Config.MAP_SIZE.y - radius:
 		return false
-	for obstacle in Config.SOLID_OBSTACLES:
-		if _circle_rect_intersects(position, radius, obstacle):
+	for obstacle in movement_obstacles:
+		if _circle_shape_intersects(position, radius, obstacle):
 			return false
 	return true
-
-func _circle_rect_intersects(center: Vector2, radius: float, rect: Rect2) -> bool:
-	var closest := Vector2(
-		clampf(center.x, rect.position.x, rect.position.x + rect.size.x),
-		clampf(center.y, rect.position.y, rect.position.y + rect.size.y)
-	)
-	return center.distance_to(closest) < radius
 
 func _round_name(round_state: int) -> String:
 	match round_state:
@@ -632,23 +634,304 @@ func _is_in_my_vision(my_pos: Vector2, my_facing: Vector2, target_pos: Vector2) 
 	return dot >= cos(Config.VISION_CONE_HALF_ANGLE)
 
 func _line_blocked_by_obstacles(a: Vector2, b: Vector2) -> bool:
-	for raw in Config.SOLID_OBSTACLES:
-		var obs: Rect2 = raw
-		if _point_in_rect(a, obs) or _point_in_rect(b, obs):
-			return true
-		var top_left: Vector2 = obs.position
-		var top_right: Vector2 = Vector2(obs.end.x, obs.position.y)
-		var bottom_left: Vector2 = Vector2(obs.position.x, obs.end.y)
-		var bottom_right: Vector2 = obs.end
-		if _segments_intersect(a, b, top_left, top_right):
-			return true
-		if _segments_intersect(a, b, top_right, bottom_right):
-			return true
-		if _segments_intersect(a, b, bottom_left, bottom_right):
-			return true
-		if _segments_intersect(a, b, top_left, bottom_left):
+	for obstacle in vision_obstacles:
+		if _segment_intersects_shape(a, b, obstacle):
 			return true
 	return false
+
+func _sync_generated_vision_occluders() -> void:
+	generated_vision_occluders = get_node_or_null(GENERATED_OCCLUDERS_ROOT_NAME) as Node2D
+	if generated_vision_occluders == null:
+		generated_vision_occluders = Node2D.new()
+		generated_vision_occluders.name = GENERATED_OCCLUDERS_ROOT_NAME
+		add_child(generated_vision_occluders)
+
+	for child in generated_vision_occluders.get_children():
+		generated_vision_occluders.remove_child(child)
+		child.free()
+
+	for obstacle in vision_obstacles:
+		if _obstacle_has_existing_light_occluder(obstacle):
+			continue
+		var polygon := _occluder_polygon_for_shape(obstacle)
+		if polygon.size() < 3:
+			continue
+
+		var occluder_polygon := OccluderPolygon2D.new()
+		occluder_polygon.polygon = polygon
+
+		var occluder := LightOccluder2D.new()
+		occluder.name = "VisionOccluder_%s" % str(obstacle.get("id", generated_vision_occluders.get_child_count()))
+		occluder.occluder = occluder_polygon
+		occluder.set_meta("source_path", str(obstacle.get("source_path", "")))
+		generated_vision_occluders.add_child(occluder)
+
+func _obstacle_has_existing_light_occluder(obstacle: Dictionary) -> bool:
+	var source_path := str(obstacle.get("source_path", ""))
+	if source_path.is_empty():
+		return false
+	var source_node := get_node_or_null(source_path)
+	if source_node == null:
+		return false
+	return _has_light_occluder_near_scene_node(source_node)
+
+func _has_light_occluder_near_scene_node(node: Node) -> bool:
+	var current := node
+	while current != null and current != self:
+		for child in current.get_children():
+			if child is LightOccluder2D:
+				return true
+
+		var parent := current.get_parent()
+		if parent:
+			for sibling in parent.get_children():
+				if sibling is LightOccluder2D:
+					return true
+		current = parent
+	return false
+
+func _occluder_polygon_for_shape(shape: Dictionary) -> PackedVector2Array:
+	match str(shape.get("type", "")):
+		"rect":
+			var x := float(shape.get("x", 0.0))
+			var y := float(shape.get("y", 0.0))
+			var w := float(shape.get("w", 0.0))
+			var h := float(shape.get("h", 0.0))
+			if w <= 0.0 or h <= 0.0:
+				return PackedVector2Array()
+			return PackedVector2Array([
+				Vector2(x, y),
+				Vector2(x + w, y),
+				Vector2(x + w, y + h),
+				Vector2(x, y + h),
+			])
+		"circle":
+			var center := Vector2(float(shape.get("x", 0.0)), float(shape.get("y", 0.0)))
+			return _circle_occluder_polygon(center, float(shape.get("radius", 0.0)))
+		"capsule":
+			var a := _point_dict_to_vector(shape.get("a", {}))
+			var b := _point_dict_to_vector(shape.get("b", {}))
+			return _capsule_occluder_polygon(a, b, float(shape.get("radius", 0.0)))
+		"segment":
+			var a := _point_dict_to_vector(shape.get("a", {}))
+			var b := _point_dict_to_vector(shape.get("b", {}))
+			return _segment_occluder_polygon(a, b, maxf(float(shape.get("radius", 1.0)), 1.0))
+		"polygon":
+			return PackedVector2Array(_shape_points(shape))
+	return PackedVector2Array()
+
+func _circle_occluder_polygon(center: Vector2, radius: float) -> PackedVector2Array:
+	if radius <= 0.0:
+		return PackedVector2Array()
+	var points := PackedVector2Array()
+	for i in range(CIRCLE_OCCLUDER_SEGMENTS):
+		var angle := TAU * float(i) / float(CIRCLE_OCCLUDER_SEGMENTS)
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	return points
+
+func _capsule_occluder_polygon(a: Vector2, b: Vector2, radius: float) -> PackedVector2Array:
+	if radius <= 0.0:
+		return PackedVector2Array()
+	if a.distance_squared_to(b) <= 0.001:
+		return _circle_occluder_polygon(a, radius)
+
+	var axis := (b - a).normalized()
+	var normal := Vector2(-axis.y, axis.x)
+	var normal_angle := normal.angle()
+	var points := PackedVector2Array([a + normal * radius, b + normal * radius])
+
+	for i in range(1, CAPSULE_OCCLUDER_HALF_SEGMENTS + 1):
+		var angle := normal_angle + PI * float(i) / float(CAPSULE_OCCLUDER_HALF_SEGMENTS)
+		points.append(b + Vector2(cos(angle), sin(angle)) * radius)
+	points.append(a - normal * radius)
+	for i in range(1, CAPSULE_OCCLUDER_HALF_SEGMENTS + 1):
+		var angle := normal_angle + PI + PI * float(i) / float(CAPSULE_OCCLUDER_HALF_SEGMENTS)
+		points.append(a + Vector2(cos(angle), sin(angle)) * radius)
+
+	return points
+
+func _segment_occluder_polygon(a: Vector2, b: Vector2, half_width: float) -> PackedVector2Array:
+	if a.distance_squared_to(b) <= 0.001 or half_width <= 0.0:
+		return PackedVector2Array()
+	var axis := (b - a).normalized()
+	var normal := Vector2(-axis.y, axis.x) * half_width
+	return PackedVector2Array([a + normal, b + normal, b - normal, a - normal])
+
+func _load_map_geometry() -> void:
+	movement_obstacles.clear()
+	vision_obstacles.clear()
+
+	var file := FileAccess.open(Config.MAP_GEOMETRY_PATH, FileAccess.READ)
+	if file == null:
+		_load_legacy_obstacles()
+		return
+
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		_load_legacy_obstacles()
+		return
+
+	var map_data: Dictionary = (parsed as Dictionary).get("map", {})
+	var obstacles: Array = map_data.get("obstacles", [])
+	if obstacles.is_empty():
+		obstacles = _legacy_obstacle_dicts(map_data.get("collision_shapes", []))
+	if obstacles.is_empty():
+		_load_legacy_obstacles()
+		return
+
+	for raw_obstacle in obstacles:
+		var obstacle: Dictionary = raw_obstacle
+		if bool(obstacle.get("blocks_movement", false)):
+			movement_obstacles.append(obstacle)
+		if bool(obstacle.get("blocks_vision", false)):
+			vision_obstacles.append(obstacle)
+
+func _load_legacy_obstacles() -> void:
+	movement_obstacles = []
+	vision_obstacles = []
+	for rect in Config.SOLID_OBSTACLES:
+		var obstacle := _rect_to_shape(rect)
+		movement_obstacles.append(obstacle)
+		vision_obstacles.append(obstacle)
+
+func _legacy_obstacle_dicts(shapes: Array) -> Array:
+	var obstacles := []
+	for raw_shape in shapes:
+		var shape: Dictionary = raw_shape
+		shape["blocks_movement"] = true
+		shape["blocks_vision"] = true
+		obstacles.append(shape)
+	return obstacles
+
+func _rect_to_shape(rect: Rect2) -> Dictionary:
+	return {
+		"type": "rect",
+		"x": rect.position.x,
+		"y": rect.position.y,
+		"w": rect.size.x,
+		"h": rect.size.y,
+	}
+
+func _circle_shape_intersects(center: Vector2, radius: float, shape: Dictionary) -> bool:
+	match str(shape.get("type", "")):
+		"rect":
+			return _circle_rect_intersects(center, radius, Rect2(
+				Vector2(float(shape.get("x", 0.0)), float(shape.get("y", 0.0))),
+				Vector2(float(shape.get("w", 0.0)), float(shape.get("h", 0.0)))
+			))
+		"circle":
+			return center.distance_to(Vector2(float(shape.get("x", 0.0)), float(shape.get("y", 0.0)))) < radius + float(shape.get("radius", 0.0))
+		"capsule":
+			var a := _point_dict_to_vector(shape.get("a", {}))
+			var b := _point_dict_to_vector(shape.get("b", {}))
+			return _distance_point_to_segment(center, a, b) < radius + float(shape.get("radius", 0.0))
+		"segment":
+			var a := _point_dict_to_vector(shape.get("a", {}))
+			var b := _point_dict_to_vector(shape.get("b", {}))
+			return _distance_point_to_segment(center, a, b) < radius
+		"polygon":
+			return _circle_polygon_intersects(center, radius, _shape_points(shape))
+	return false
+
+func _circle_rect_intersects(center: Vector2, radius: float, rect: Rect2) -> bool:
+	var closest := Vector2(
+		clampf(center.x, rect.position.x, rect.position.x + rect.size.x),
+		clampf(center.y, rect.position.y, rect.position.y + rect.size.y)
+	)
+	return center.distance_to(closest) < radius
+
+func _circle_polygon_intersects(center: Vector2, radius: float, points: Array[Vector2]) -> bool:
+	if points.size() < 3:
+		return false
+	if _point_in_polygon(center, points):
+		return true
+	for i in range(points.size()):
+		if _distance_point_to_segment(center, points[i], points[(i + 1) % points.size()]) < radius:
+			return true
+	return false
+
+func _segment_intersects_shape(a: Vector2, b: Vector2, shape: Dictionary) -> bool:
+	match str(shape.get("type", "")):
+		"rect":
+			return _segment_intersects_rect(a, b, Rect2(
+				Vector2(float(shape.get("x", 0.0)), float(shape.get("y", 0.0))),
+				Vector2(float(shape.get("w", 0.0)), float(shape.get("h", 0.0)))
+			))
+		"circle":
+			var center := Vector2(float(shape.get("x", 0.0)), float(shape.get("y", 0.0)))
+			return _distance_point_to_segment(center, a, b) <= float(shape.get("radius", 0.0))
+		"capsule":
+			var p1 := _point_dict_to_vector(shape.get("a", {}))
+			var p2 := _point_dict_to_vector(shape.get("b", {}))
+			return _segments_intersect(a, b, p1, p2) or _distance_segment_to_segment(a, b, p1, p2) <= float(shape.get("radius", 0.0))
+		"segment":
+			return _segments_intersect(a, b, _point_dict_to_vector(shape.get("a", {})), _point_dict_to_vector(shape.get("b", {})))
+		"polygon":
+			return _segment_intersects_polygon(a, b, _shape_points(shape))
+	return false
+
+func _segment_intersects_rect(a: Vector2, b: Vector2, rect: Rect2) -> bool:
+	if _point_in_rect(a, rect) or _point_in_rect(b, rect):
+		return true
+	var top_left: Vector2 = rect.position
+	var top_right: Vector2 = Vector2(rect.end.x, rect.position.y)
+	var bottom_left: Vector2 = Vector2(rect.position.x, rect.end.y)
+	var bottom_right: Vector2 = rect.end
+	return _segments_intersect(a, b, top_left, top_right) \
+		or _segments_intersect(a, b, top_right, bottom_right) \
+		or _segments_intersect(a, b, bottom_left, bottom_right) \
+		or _segments_intersect(a, b, top_left, bottom_left)
+
+func _segment_intersects_polygon(a: Vector2, b: Vector2, points: Array[Vector2]) -> bool:
+	if points.size() < 3:
+		return false
+	if _point_in_polygon(a, points) or _point_in_polygon(b, points):
+		return true
+	for i in range(points.size()):
+		if _segments_intersect(a, b, points[i], points[(i + 1) % points.size()]):
+			return true
+	return false
+
+func _shape_points(shape: Dictionary) -> Array[Vector2]:
+	var points: Array[Vector2] = []
+	for raw_point in shape.get("points", []):
+		points.append(_point_dict_to_vector(raw_point))
+	return points
+
+func _point_dict_to_vector(raw_point: Variant) -> Vector2:
+	if typeof(raw_point) != TYPE_DICTIONARY:
+		return Vector2.ZERO
+	var point: Dictionary = raw_point
+	return Vector2(float(point.get("x", 0.0)), float(point.get("y", 0.0)))
+
+func _point_in_polygon(point: Vector2, polygon: Array[Vector2]) -> bool:
+	var inside := false
+	var j := polygon.size() - 1
+	for i in range(polygon.size()):
+		var pi := polygon[i]
+		var pj := polygon[j]
+		if (pi.y > point.y) != (pj.y > point.y):
+			var x_at_y := (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x
+			if point.x < x_at_y:
+				inside = not inside
+		j = i
+	return inside
+
+func _distance_point_to_segment(point: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var length_squared := ab.length_squared()
+	if length_squared == 0.0:
+		return point.distance_to(a)
+	var t := clampf((point - a).dot(ab) / length_squared, 0.0, 1.0)
+	return point.distance_to(a + ab * t)
+
+func _distance_segment_to_segment(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> float:
+	if _segments_intersect(a, b, c, d):
+		return 0.0
+	return minf(
+		minf(_distance_point_to_segment(a, c, d), _distance_point_to_segment(b, c, d)),
+		minf(_distance_point_to_segment(c, a, b), _distance_point_to_segment(d, a, b))
+	)
 
 func _point_in_rect(p: Vector2, rect: Rect2) -> bool:
 	return p.x >= rect.position.x and p.x <= rect.end.x \

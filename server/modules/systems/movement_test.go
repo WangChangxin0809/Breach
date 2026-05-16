@@ -10,9 +10,9 @@ import (
 func TestValidateMoveAcceptsLegalMovement(t *testing.T) {
 	cfg := config.Active()
 	player := &state.Player{
-		LastValid: state.Vec2{X: 120, Y: 180},
+		LastValid: state.Vec2{X: 240, Y: 180},
 	}
-	next := state.Vec2{X: 128, Y: 180}
+	next := state.Vec2{X: 248, Y: 180}
 
 	result := ValidateMove(player, next, 1.0/float64(cfg.Match.TickRate))
 	if !result.Accepted {
@@ -23,9 +23,9 @@ func TestValidateMoveAcceptsLegalMovement(t *testing.T) {
 func TestValidateMoveRejectsSpeedLimit(t *testing.T) {
 	cfg := config.Active()
 	player := &state.Player{
-		LastValid: state.Vec2{X: 120, Y: 180},
+		LastValid: state.Vec2{X: 240, Y: 180},
 	}
-	next := state.Vec2{X: 220, Y: 180}
+	next := state.Vec2{X: 340, Y: 180}
 
 	result := ValidateMove(player, next, 1.0/float64(cfg.Match.TickRate))
 	if result.Accepted || result.Reason != "speed_limit" {
@@ -36,7 +36,7 @@ func TestValidateMoveRejectsSpeedLimit(t *testing.T) {
 func TestValidateMoveRejectsBounds(t *testing.T) {
 	cfg := config.Active()
 	player := &state.Player{
-		LastValid: state.Vec2{X: 120, Y: 180},
+		LastValid: state.Vec2{X: 240, Y: 180},
 	}
 	next := state.Vec2{X: -1, Y: 180}
 
@@ -93,5 +93,35 @@ func TestCircleIntersectsExportedCapsule(t *testing.T) {
 	}
 	if collidesWithShape(state.Vec2{X: 140, Y: 150}, 16, shape) {
 		t.Fatalf("expected distant circle to avoid capsule")
+	}
+}
+
+func TestSemanticObstaclesOnlyBlockMovementWhenFlagged(t *testing.T) {
+	cfg := &config.GameConfig{
+		Map: config.MapConfig{
+			Obstacles: []config.CollisionShape{
+				{
+					Type:         "circle",
+					X:            100,
+					Y:            100,
+					Radius:       32,
+					BlocksVision: true,
+				},
+				{
+					Type:           "circle",
+					X:              200,
+					Y:              100,
+					Radius:         32,
+					BlocksMovement: true,
+				},
+			},
+		},
+	}
+
+	if collidesWithObstacle(cfg, state.Vec2{X: 100, Y: 100}, 16) {
+		t.Fatalf("expected vision-only obstacle not to block movement")
+	}
+	if !collidesWithObstacle(cfg, state.Vec2{X: 200, Y: 100}, 16) {
+		t.Fatalf("expected movement obstacle to block movement")
 	}
 }
