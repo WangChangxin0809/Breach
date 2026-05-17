@@ -10,7 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://csmoowd46cc5f" path="res://assets/other/light.png" id="6_bl28q"]
 [ext_resource type="Script" uid="uid://dlb4t24ho60nx" path="res://scripts/characters/player_camera.gd" id="6_fxgxy"]
 [ext_resource type="Texture2D" uid="uid://b67c3xfs5ryo7" path="res://assets/spiritframes/Player_02/Idle_Image Frames.png" id="7_bby0m"]
-[ext_resource type="Script" uid="uid://b4y6weeplw47q" path="res://scripts/characters/enemy/TentacleEnemy.gd" id="11_utiah"]
+[ext_resource type="Script" uid="uid://b4y6weeplw47q" path="res://scripts/neutral/TentacleEnemy.gd" id="11_utiah"]
 [ext_resource type="Shader" uid="uid://c35xjyfnwwi1d" path="res://assets/shader/moving_uv.gdshader" id="12_notue"]
 [ext_resource type="Texture2D" uid="uid://coj2l31ql7b4o" path="res://assets/spiritframes/01.png" id="13_q10uu"]
 [ext_resource type="PackedScene" path="res://scenes/characters/player_character.tscn" id="15_player_character"]
